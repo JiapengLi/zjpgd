@@ -5,10 +5,6 @@
 #include "zjpgdusr.h"
 #endif
 
-#ifndef ZJD_CACHE_SIZE
-#   define ZJD_CACHE_SIZE               256
-#endif
-
 #ifndef ZJD_DEBUG
 #   define ZJD_DEBUG                    1
 #endif

@@ -145,6 +145,6 @@ struct zjd {
 };
 
 zjd_res_t zjd_init(zjd_t *zjd, zjd_cfg_t *cfg, zjd_outfmt_t outfmt);
-zjd_res_t zjd_scan(zjd_t *zjd, zjd_ctx_t *ctx, zjd_rect_t *tgt_rect);
+zjd_res_t zjd_scan(zjd_t *zjd, zjd_ctx_t *snapshot, zjd_rect_t *tgt_rect);
 
 #endif /* __ZJPGD_H__ */

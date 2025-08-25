@@ -3,9 +3,8 @@
 #include "zjpgd.h"
 #include "zjpgdalg.h"
 
-
-
-zjd_outfmt_t outfmt = ZJD_RGB888;
+static zjd_outfmt_t outfmt = ZJD_RGB888;
+static zjd_ctx_t snapshot[16];
 
 int zjd_ifunc(zjd_t *zjd, uint8_t *buf, uint32_t addr, int len)
 {
@@ -25,6 +24,8 @@ int zjd_ifunc(zjd_t *zjd, uint8_t *buf, uint32_t addr, int len)
 
 int zjd_ofunc(zjd_t *zjd, zjd_rect_t *rect, void *pixels)
 {
+    /* take snapshot for this MCU */
+    snapshot[0] = zjd->ctx;
 
 #if JD_DEBUG
     JD_LOG("Decoded rect: (%d,%d)-(%d,%d)", rect->left, rect->top, rect->right, rect->bottom);
@@ -99,7 +100,6 @@ int main(int argc, char **argv)
 {
     zjd_t zjd;
     zjd_cfg_t cfg;
-    zjd_ctx_t snapshot;
     zjd_rect_t roi_rect, _rect, *rect = &_rect;
     zjd_res_t res;
 
@@ -177,23 +177,13 @@ int main(int argc, char **argv)
         return 1;
     }
 
-// MCU context updated: oft 334, dreg F1900000, dbit 12, d 25, x 8, y 8, dcv 51 0 0
-    snapshot.offset = 334;
-    snapshot.dreg = 0xF1900000;
-    snapshot.dbit = 12;
-    snapshot.d = 25;
-    snapshot.mcu_x = 8;
-    snapshot.mcu_y = 8;
-    snapshot.dcv[0] = 51;
-    snapshot.dcv[1] = 0;
-    snapshot.dcv[2] = 0;
-    res = zjd_scan(&zjd, &snapshot, NULL);
+    /* Use snapshot to start decompression */
+    res = zjd_scan(&zjd, &snapshot[0], NULL);
     if (res != ZJD_OK) {
         printf("Decompress with snapshot failed %d\n", res);
         fclose(fp);
         return 1;
     }
-
 
     fclose(fp);
 

@@ -101,7 +101,7 @@ typedef void (*zjd_yuv_scan_t)(zjd_t *, zjd_rect_t *mcu_rect, zjd_rect_t *tgt_re
 typedef void (*zjd_yuv2pix_t)(uint8_t **pix, int yy, int cb, int cr);
 
 typedef struct {
-    uint32_t oft;
+    uint32_t offset;
     uint32_t dreg;
     int8_t dbit;
     uint8_t d;
@@ -121,6 +121,7 @@ typedef struct {
 struct zjd {
     zjd_ctx_t ctx;
     zjd_comp_t component[6];
+    int16_t dcv[3];
 
     uint8_t msx;
     uint8_t msy;
@@ -128,7 +129,7 @@ struct zjd {
     uint16_t width;
     uint16_t height;
 
-    uint32_t bufoft;
+    uint32_t oft;
     int16_t buflen;
     void *buf;
 

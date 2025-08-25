@@ -11,7 +11,7 @@ int zjd_ifunc(zjd_t *zjd, uint8_t *buf, uint32_t addr, int len)
 {
     FILE *fp = (FILE *)zjd->arg;
 
-    ZJD_LOG("rd %d", len);
+    ZJD_LOG("rd %d %d", addr, len);
 
     fseek(fp, addr, SEEK_SET);
     if (buf) {
@@ -93,14 +93,13 @@ int zjd_ofunc(zjd_t *zjd, zjd_rect_t *rect, void *pixels)
 #endif
 
     return 1;
-    return 1;
 }
 
 int main(int argc, char **argv)
 {
     zjd_t zjd;
     zjd_cfg_t cfg;
-    zjd_ctx_t ctx;
+    zjd_ctx_t snapshot;
     zjd_rect_t roi_rect, _rect, *rect = &_rect;
     zjd_res_t res;
 
@@ -177,6 +176,24 @@ int main(int argc, char **argv)
         fclose(fp);
         return 1;
     }
+
+// MCU context updated: oft 334, dreg F1900000, dbit 12, d 25, x 8, y 8, dcv 51 0 0
+    snapshot.offset = 334;
+    snapshot.dreg = 0xF1900000;
+    snapshot.dbit = 12;
+    snapshot.d = 25;
+    snapshot.mcu_x = 8;
+    snapshot.mcu_y = 8;
+    snapshot.dcv[0] = 51;
+    snapshot.dcv[1] = 0;
+    snapshot.dcv[2] = 0;
+    res = zjd_scan(&zjd, &snapshot, NULL);
+    if (res != ZJD_OK) {
+        printf("Decompress with snapshot failed %d\n", res);
+        fclose(fp);
+        return 1;
+    }
+
 
     fclose(fp);
 

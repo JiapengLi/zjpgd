@@ -114,7 +114,7 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    uint8_t work[8192]; // Work buffer
+    uint8_t work[3072]; // Work buffer
 
     if (argc > 3) {
         int x, y, w, h;

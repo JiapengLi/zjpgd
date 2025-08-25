@@ -50,7 +50,7 @@ static inline bool is_rect_intersect(const zjd_rect_t *r0, const zjd_rect_t *r1)
 /*-------------------------------------------------------------------------*/
 // Log
 #if ZJD_DEBUG
-const char *jd_code2bin(char *buf, int code, int bits)
+const char *zjd_code2bin(char *buf, int code, int bits)
 {
     int i;
 
@@ -76,7 +76,7 @@ void zjd_log_huffman_table(int num, int cls, uint8_t *hb, uint16_t *hc, uint8_t 
     for (i = 0; i < 16; i++) {
         total_codes = hb[i];
         while (total_codes--)  {
-            ZJD_LOG("%3d, %2d, %04X, %17s, %02X", j, i + 1, hc[j], jd_code2bin(buf, hc[j], i + 1), hd[j]);
+            ZJD_LOG("%3d, %2d, %04X, %17s, %02X", j, i + 1, hc[j], zjd_code2bin(buf, hc[j], i + 1), hd[j]);
             j++;
         }
     }
@@ -624,6 +624,9 @@ static zjd_res_t zjd_sos_handler(zjd_t *zjd, zjd_tbl_t *tbl, const uint8_t *buf,
         return ZJD_ERR_OOM1;
     }
 
+    /* Reuse remained buf and buflen as cache */
+    ZJD_LOG("Cache: %p, %d", zjd->buf, zjd->buflen);
+
     /* Convert to RGB */
     if ((zjd->ncomp == 1) && (zjd->msx == 1) && (zjd->msy == 1)) {
         zjd->yuv_scan = yuv400_scan;
@@ -793,7 +796,196 @@ zjd_res_t zjd_init(zjd_t *zjd, zjd_cfg_t *cfg, zjd_outfmt_t outfmt)
     return ZJD_OK;
 }
 
-zjd_res_t zjd_scan(zjd_t *zjd, zjd_ctx_t *ctx, zjd_rect_t *roi_rect)
+zjd_res_t zjd_scan(zjd_t *zjd, zjd_ctx_t *snapshot, zjd_rect_t *tgt_rect)
 {
+    int32_t dc = 0;
+    uint8_t *dp;
+    uint8_t last_d = 0, d = 0, dbit = 0, cnt = 0, cmp = 0, cls = 0, bl0, bl1, val, zeros;
+    uint32_t dreg = 0;
+    int ebits, dcac;
+    uint8_t bits_threshold = 15, n_y, n_cmp;
+    int x = 0, y = 0;
+    bool next_huff = true;
+    zjd_rect_t _mcu_rect, *mcu_rect = &_mcu_rect;
+
+    zjd_comp_t *component = &zjd->component[cmp];
+    zjd_yuv_t *mcubuf = &zjd->mcubuf[cmp << 6];   // cmp * 64
+    zjd_ctx_t *ctx = &zjd->ctx;
+
+    n_y = zjd->msy * zjd->msx; /* Number of Y blocks in the MCU */
+    if (zjd->ncomp == 1) {
+        n_cmp = n_y;
+    } else if (zjd->ncomp == 3) {
+        n_cmp = n_y + 2;
+    } else {
+        return ZJD_ERR_PARA;
+    }
+
+    memset(mcubuf, 0, 64 * sizeof(zjd_yuv_t));
+
+    /* n_y: 1, 2, 4, ncomp: 1, 3 */
+    while (1) {
+        if (dc == 0) {
+            dp = zjd->buf; /* Top of input buffer */
+            dc = zjd->ifunc(zjd, zjd->buf, ctx->oft, zjd->buflen);
+            if (!dc) {
+                ZJD_LOG("No more data, %d", dbit);
+                return ZJD_ERR_LEN_SOS;
+            }
+        }
+
+        if (dbit > 24) {
+            ZJD_LOG("No more buffer");
+            return ZJD_ERR_SCAN_SLOW;
+        }
+
+        last_d = d;
+        d = *dp;
+        dp++;
+        dc--;
+        ctx->oft++;
+
+        if (d == 0xFF) {
+            continue;
+        } else if (last_d == 0xFF) {
+            ZJD_LOG("Found marker %02X", d);
+            if (d == 0x00) {
+                ZJD_LOG("Padding byte");
+                dreg = (dreg & ~(0xFFFFFFFF >> dbit)) | ((uint32_t)0xFF << (32 - dbit - 8));
+                dbit += 8;
+            } else {
+                if (d == 0xD9) {
+                    ZJD_LOG("EOI marker");
+                    bits_threshold = 0;
+                } else {
+                    if ((d >= 0xD0) && (d <= 0xD7)) {
+                        ZJD_LOG("RST marker %02X", d);
+                    }
+                    continue;
+                }
+            }
+        } else {
+            dreg = (dreg & ~(0xFFFFFFFF >> dbit)) | ((uint32_t)d << (32 - dbit - 8));
+            dbit += 8;
+        }
+
+        ZJD_LOG("Buffer: %08X %u %02X", dreg, dbit, d);
+
+        while (dbit > bits_threshold) {
+            if (next_huff) {
+                cls = !!cnt;
+
+                ZJD_LOG("(x: %d, y: %d), cmp %u, %s table, cls %d, cnt %d, dreg %08X, dbit %u",
+                       x, y, cmp, cls == 0 ? "DC" : "AC", cls, cnt, dreg, dbit);
+
+                bl0 = zjd_get_hc(&component->huff[cls], dreg, dbit, &val);
+                if (!bl0) {
+                    ZJD_LOG("bl0 Huffman code too short: %08X %u", dreg, dbit);
+                    return ZJD_ERR_FMT1;
+                }
+
+                dbit -= bl0;
+                dreg <<= bl0;
+                next_huff = false;
+
+                ZJD_LOG("processing huff, bl0 %d, val %02X", bl0, val);
+
+                if (val != 0) {
+                    continue;
+                }
+            }
+
+            if (!next_huff) {
+                ZJD_LOG("processing bits, cnt %d val %02X", cnt, val);
+
+                if ((val != 0) || (cnt == 0)) {
+                    zeros = val >> 4;
+                    bl1 = val & 0x0F;
+
+                    if (dbit < bl1) {
+                        ZJD_LOG("bl1 Huffman code too short: %08X %u < %u", dreg, dbit, bl1);
+                        return ZJD_ERR_FMT1;
+                    }
+
+                    cnt += zeros;
+
+                    if (bl1) {
+                        ebits = (int)(dreg >> (32 - bl1));
+                        if (!(dreg & 0x80000000)) {
+                            ebits -= (1 << bl1) - 1;    /* Restore negative value if needed */
+                        }
+                    } else {
+                        ebits = 0;
+                    }
+                    if ((cnt == 0) || bl1) {
+                        if (cnt == 0) {
+                            /* DC component */
+                            dcac = *component->dcv + ebits;
+                            *component->dcv = dcac;
+                        } else {
+                            /* AC component */
+                            dcac = ebits;
+                        }
+
+                        /* reverse zigzag */
+                        mcubuf[ZIGZAG[cnt]] = dcac;
+
+                        dbit -= bl1;
+                        dreg <<= bl1;
+                        cnt += 1;
+                    }
+                } else {
+                    /* EOB detected */
+                    zeros = 0;
+                    cnt = 64;
+                    ebits = 0;
+                }
+
+                ZJD_LOG("Found Huffman code: %08X %u | %u %02X %d %d %d", dreg, dbit, bl0, val, *component->dcv, ebits, dcac);
+                if (cnt == 64) {
+                    cnt = 0;
+
+                    ZJD_INTDUMP(mcubuf, 64);
+                    ZJD_LOG("");
+
+                    cmp++;
+                    if (cmp >= n_cmp) {
+                        cmp = 0;
+
+                        mcu_rect->x = x;
+                        mcu_rect->y = y;
+                        mcu_rect->w = zjd->msx << 3;
+                        mcu_rect->h = zjd->msy << 3;
+                        if (tgt_rect == NULL) {
+                            zjd_mcu_scan(zjd, n_cmp, mcu_rect, tgt_rect);
+                        } else {
+                            if (is_rect_intersect(tgt_rect, mcu_rect)) {
+                                ZJD_LOG("MCU intersects with output rectangle (%u,%u,%u,%u) (%u,%u,%u,%u)\n",
+                                       mcu_rect->x, mcu_rect->y, mcu_rect->w, mcu_rect->h,
+                                       tgt_rect->x, tgt_rect->y, tgt_rect->w, tgt_rect->h);
+                                zjd_mcu_scan(zjd, n_cmp, mcu_rect, tgt_rect);
+                            }
+                        }
+
+                        x += zjd->msx << 3;
+                        if (x >= zjd->width) {
+                            x = 0;
+                            y += zjd->msy << 3;
+                            if (y >= zjd->height) {
+                                ZJD_LOG("All MCUs processed (%u padding bits: %X)", dbit, dreg >> (32 - dbit));
+                                return ZJD_OK;
+                            }
+                        }
+                    }
+                    component = &zjd->component[cmp];
+                    mcubuf = &zjd->mcubuf[cmp << 6];     // cmp * 64
+
+                    memset(mcubuf, 0, 64 * sizeof(zjd_yuv_t));
+                }
+                next_huff = true;
+            }
+        }
+    }
+
     return ZJD_OK;
 }

@@ -57,6 +57,11 @@ typedef enum {
     ZJD_ERR_MARKER_NOT_SUPPORTED = -99,
     ZJD_ERR_MARKER_UNKNOWN = -98,
     ZJD_ERR_SOI = -97,
+
+    ZJD_ERR_LEN_SOS = -29,
+    ZJD_ERR_SCAN_SLOW = -30,
+    ZJD_ERR_PARA = -31,
+
 } zjd_res_t;
 
 typedef struct {
@@ -92,14 +97,14 @@ typedef struct zjd zjd_t;
 
 typedef int (*zjd_ifunc_t)(zjd_t *, uint8_t *buf, uint32_t addr, int len);
 typedef int (*zjd_ofunc_t)(zjd_t *, zjd_rect_t *, void *);
-typedef void (*zjd_yuv_scan_t)(zjd_t *, zjd_rect_t *mcu_rect, zjd_rect_t *roi_rect);
+typedef void (*zjd_yuv_scan_t)(zjd_t *, zjd_rect_t *mcu_rect, zjd_rect_t *tgt_rect);
 typedef void (*zjd_yuv2pix_t)(uint8_t **pix, int yy, int cb, int cr);
 
 typedef struct {
     uint32_t oft;
     uint32_t dreg;
     int8_t dbit;
-    uint8_t last_d;
+    uint8_t d;
     uint16_t mcu_x;
     uint16_t mcu_y;
     int16_t dcv[3];
@@ -123,6 +128,7 @@ struct zjd {
     uint16_t width;
     uint16_t height;
 
+    uint32_t bufoft;
     int16_t buflen;
     void *buf;
 
@@ -132,13 +138,12 @@ struct zjd {
     zjd_ifunc_t ifunc;
     zjd_ofunc_t ofunc;
 
-    uint8_t *cache;
     void *workbuf;
     zjd_yuv_t *mcubuf;
     void *arg;
 };
 
 zjd_res_t zjd_init(zjd_t *zjd, zjd_cfg_t *cfg, zjd_outfmt_t outfmt);
-zjd_res_t zjd_scan(zjd_t *zjd, zjd_ctx_t *ctx, zjd_rect_t *roi_rect);
+zjd_res_t zjd_scan(zjd_t *zjd, zjd_ctx_t *ctx, zjd_rect_t *tgt_rect);
 
 #endif /* __ZJPGD_H__ */

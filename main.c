@@ -158,7 +158,6 @@ int main(int argc, char **argv)
     }
 
     printf("Preparing JPEG decoder...\n");
-
     cfg.ifunc = zjd_ifunc;  // User-defined input function
     cfg.ofunc = zjd_ofunc;  // User-defined output function
     cfg.buf = work;        // Work buffer
@@ -171,21 +170,13 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    //zjd_scan(&zjd, &ctx, &roi_rect);
-
-    // res = jd_prepare(&jd, input_func, work, sizeof(work), fp);
-    // if (res != JDR_OK) {
-    //     printf("Failed to prepare JPEG decoder %u\n", res);
-    //     fclose(fp);
-    //     return 1;
-    // }
-
     // printf("Starting JPEG decompression...\n");
-    // if (jd_decomp_rect(&jd, output_func, rect) != JDR_OK) {
-    //     printf("Failed to decode JPEG image\n");
-    //     fclose(fp);
-    //     return 1;
-    // }
+    res = zjd_scan(&zjd, NULL, NULL);
+    if (res != ZJD_OK) {
+        printf("Failed to start JPEG decompression %d\n", res);
+        fclose(fp);
+        return 1;
+    }
 
     fclose(fp);
 

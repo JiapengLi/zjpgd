@@ -47,6 +47,12 @@ static inline bool is_rect_intersect(const zjd_rect_t *r0, const zjd_rect_t *r1)
     );
 }
 
+static inline bool is_r0_beyond_r1(const zjd_rect_t *r0, const zjd_rect_t *r1)
+{
+    return (r0->x + r0->w >= r1->x + r1->w) &&
+           (r0->y + r0->h >= r1->y + r1->h);
+}
+
 /*-------------------------------------------------------------------------*/
 // Log
 #if ZJD_DEBUG
@@ -796,6 +802,8 @@ zjd_res_t zjd_init(zjd_t *zjd, zjd_cfg_t *cfg, zjd_outfmt_t outfmt)
     return ZJD_OK;
 }
 
+/* snapshot: used to control where to start, and where to resume
+   tgt_rect: target rectangle is used for  */
 zjd_res_t zjd_scan(zjd_t *zjd, zjd_ctx_t *snapshot, zjd_rect_t *tgt_rect)
 {
     int32_t dc = 0;
@@ -983,11 +991,15 @@ zjd_res_t zjd_scan(zjd_t *zjd, zjd_ctx_t *snapshot, zjd_rect_t *tgt_rect)
                         if (tgt_rect == NULL) {
                             zjd_mcu_scan(zjd, n_cmp, mcu_rect, tgt_rect);
                         } else {
-                            if (is_rect_intersect(tgt_rect, mcu_rect)) {
+                            if (is_rect_intersect(mcu_rect, tgt_rect)) {
                                 ZJD_LOG("MCU intersects with output rectangle (%u,%u,%u,%u) (%u,%u,%u,%u)\n",
                                        mcu_rect->x, mcu_rect->y, mcu_rect->w, mcu_rect->h,
                                        tgt_rect->x, tgt_rect->y, tgt_rect->w, tgt_rect->h);
                                 zjd_mcu_scan(zjd, n_cmp, mcu_rect, tgt_rect);
+
+                                if (is_r0_beyond_r1(mcu_rect, tgt_rect)) {
+                                    return ZJD_OK;
+                                }
                             }
                         }
 

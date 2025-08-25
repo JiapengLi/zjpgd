@@ -24,8 +24,10 @@ int zjd_ifunc(zjd_t *zjd, uint8_t *buf, uint32_t addr, int len)
 
 int zjd_ofunc(zjd_t *zjd, zjd_rect_t *rect, void *pixels)
 {
-    /* take snapshot for this MCU */
-    snapshot[0] = zjd->ctx;
+    /* take snapshot for a specified MCU */
+    if (rect->x == 0 && rect->y == 0) {
+        snapshot[0] = zjd->ctx;
+    }
 
 #if JD_DEBUG
     JD_LOG("Decoded rect: (%d,%d)-(%d,%d)", rect->left, rect->top, rect->right, rect->bottom);
@@ -100,7 +102,7 @@ int main(int argc, char **argv)
 {
     zjd_t zjd;
     zjd_cfg_t cfg;
-    zjd_rect_t roi_rect, _rect, *rect = &_rect;
+    zjd_rect_t *roi_rect = NULL, _rect;
     zjd_res_t res;
 
     if (argc < 2) {
@@ -124,7 +126,7 @@ int main(int argc, char **argv)
             _rect.y = y;
             _rect.w = w;
             _rect.h = h;
-            rect = &_rect;
+            roi_rect = &_rect;
         } else {
             fprintf(stderr, "Invalid rectangle format: %s\n", argv[3]);
             fclose(fp);
@@ -169,7 +171,7 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    // printf("Starting JPEG decompression...\n");
+    printf("\n\nStarting FULL JPEG decompression\n");
     res = zjd_scan(&zjd, NULL, NULL);
     if (res != ZJD_OK) {
         printf("Failed to start JPEG decompression %d\n", res);
@@ -177,13 +179,21 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    /* Use snapshot to start decompression */
-    res = zjd_scan(&zjd, &snapshot[0], NULL);
+    printf("\n\nStarting ROI JPEG decompression\n");
+    res = zjd_scan(&zjd, &snapshot[0], roi_rect);
     if (res != ZJD_OK) {
-        printf("Decompress with snapshot failed %d\n", res);
+        printf("Failed to start JPEG decompression %d\n", res);
         fclose(fp);
         return 1;
     }
+
+    // /* Use snapshot to start decompression */
+    // res = zjd_scan(&zjd, &snapshot[0], NULL);
+    // if (res != ZJD_OK) {
+    //     printf("Decompress with snapshot failed %d\n", res);
+    //     fclose(fp);
+    //     return 1;
+    // }
 
     fclose(fp);
 

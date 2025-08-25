@@ -642,6 +642,7 @@ static zjd_res_t zjd_sos_handler(zjd_t *zjd, zjd_tbl_t *tbl, const uint8_t *buf,
 
     /* default Color format */
     zjd->yuv2pix = zjd_yuv2pix_tab[outfmt];
+    ZJD_LOG("Output format: %d", outfmt);
 
     return ZJD_OK;
 }
@@ -832,6 +833,7 @@ zjd_res_t zjd_scan(zjd_t *zjd, zjd_ctx_t *snapshot, zjd_rect_t *tgt_rect)
                 ZJD_LOG("No more data, %d", dbit);
                 return ZJD_ERR_LEN_SOS;
             }
+            ctx->oft += dc;
         }
 
         if (dbit > 24) {
@@ -843,7 +845,6 @@ zjd_res_t zjd_scan(zjd_t *zjd, zjd_ctx_t *snapshot, zjd_rect_t *tgt_rect)
         d = *dp;
         dp++;
         dc--;
-        ctx->oft++;
 
         if (d == 0xFF) {
             continue;

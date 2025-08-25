@@ -66,8 +66,8 @@ int zjd_ofunc(zjd_t *zjd, zjd_rect_t *rect, void *pixels)
         break;
     }
     printf("(%d,%d)-(%d,%d)\n", rect->x, rect->y, rect->w, rect->h);
-    for (y = rect->y; y <= rect->y + rect->h; y++) {
-        for (x = rect->x; x <= rect->x + rect->w; x++) {
+    for (y = rect->y; y < rect->y + rect->h; y++) {
+        for (x = rect->x; x < rect->x + rect->w; x++) {
             if (l == 2) {
                 uint16_t v = *(uint16_t *)pix;
                 int r = (v >> 11) & 0x1F;

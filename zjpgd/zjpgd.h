@@ -31,6 +31,8 @@ typedef enum {
     ZJD_ERR_LEN_QTTBL = -8,
     ZJD_ERR_FMT_QTTBL = -9,
 
+    ZJD_ERR_LEN_SOS = -10,
+
     ZJD_ERR_OOM_HFMTBL1 = -11,
     ZJD_ERR_LEN_HFMTBL1 = -12,
     ZJD_ERR_FMT_HFMTBL1 = -13,
@@ -43,8 +45,6 @@ typedef enum {
     ZJD_ERR_LEN_HFMTBL3 = -18,
     ZJD_ERR_FMT_HFMTBL3 = -19,
 
-
-
     ZJD_ERR_OOM0 = -20,
     ZJD_ERR_OOM1 = -21,
 
@@ -53,12 +53,13 @@ typedef enum {
     ZJD_ERR_FMT_SOF = -24,
     ZJD_ERR_FMT3 = -25,
 
-    ZJD_ERR_YUV = -96,
-    ZJD_ERR_MARKER_NOT_SUPPORTED = -99,
-    ZJD_ERR_MARKER_UNKNOWN = -98,
-    ZJD_ERR_SOI = -97,
+    ZJD_ERR_YUV = -26,
 
-    ZJD_ERR_LEN_SOS = -29,
+    ZJD_ERR_MARKER_UNKNOWN = -27,
+
+    ZJD_ERR_MARKER_NOT_SUPPORTED = -28,
+    ZJD_ERR_SOI = -29,
+
     ZJD_ERR_SCAN_SLOW = -30,
     ZJD_ERR_PARA = -31,
 

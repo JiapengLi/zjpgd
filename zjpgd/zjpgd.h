@@ -132,6 +132,7 @@ struct zjd {
     uint16_t height;
 
     uint32_t oft;
+    uint32_t pos;
     int16_t buflen;
     void *buf;
 

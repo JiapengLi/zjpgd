@@ -802,6 +802,18 @@ zjd_res_t zjd_init(zjd_t *zjd, const zjd_cfg_t *cfg)
     return ZJD_OK;
 }
 
+/* TODO: sub function of zjd_scan, speed optimized scan */
+zjd_res_t zjd_scan_full(zjd_t *zjd)
+{
+    return ZJD_OK;
+}
+
+/* TODO: sub function of zjd_scan, skip as much decode process as possible to speed up  */
+zjd_res_t zjd_scan_roi(zjd_t *zjd, const zjd_ctx_t *snapshot, const zjd_rect_t *tgt_rect)
+{
+    return ZJD_OK;
+}
+
 /* snapshot: used to control where to start, and where to resume
    tgt_rect: target rectangle is used for  */
 zjd_res_t zjd_scan(zjd_t *zjd, const zjd_ctx_t *snapshot, const zjd_rect_t *tgt_rect)
@@ -844,6 +856,7 @@ zjd_res_t zjd_scan(zjd_t *zjd, const zjd_ctx_t *snapshot, const zjd_rect_t *tgt_
         zjd->dcv[1] = snapshot->dcv[1];
         zjd->dcv[2] = snapshot->dcv[2];
         zjd->oft = snapshot->offset;
+        zjd->pos = zjd->oft;
     }
     /* take snapshot */
     ctx->offset = zjd->oft;
@@ -857,25 +870,24 @@ zjd_res_t zjd_scan(zjd_t *zjd, const zjd_ctx_t *snapshot, const zjd_rect_t *tgt_
     ctx->dcv[2] = zjd->dcv[2];
 
     while (1) {
-        if (dc == 0) {
+        if (zjd->oft >= zjd->pos) {
             dp = zjd->buf; /* Top of input buffer */
             dc = zjd->ifunc(zjd, zjd->buf, zjd->oft, zjd->buflen);
             if (!dc) {
                 ZJD_LOG("No more data, %d", dbit);
                 return ZJD_ERR_LEN_SOS;
             }
+            zjd->pos = zjd->oft + dc;
         }
 
-        if (dbit > 24) {
-            ZJD_LOG("No more buffer");
-            return ZJD_ERR_SCAN_SLOW;
-        }
+        // if (dbit > 24) {
+        //     ZJD_LOG("No more buffer");
+        //     return ZJD_ERR_SCAN_SLOW;
+        // }
 
         last_d = d;
-        d = *dp;
-        dp++;
-        dc--;
-        zjd->oft += 1;
+        d = *dp++;
+        zjd->oft++;
 
         if (d == 0xFF) {
             continue;

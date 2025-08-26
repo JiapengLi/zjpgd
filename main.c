@@ -26,11 +26,11 @@ int zjd_ofunc(zjd_t *zjd, zjd_rect_t *rect, void *pixels)
 {
     /* take snapshot for a specified MCU */
     if (rect->x == 0 && rect->y == 0) {
-        snapshot[0] = zjd->ctx;
+        zjd_save(zjd, &snapshot[0]);
     }
 
-#if JD_DEBUG
-    JD_LOG("Decoded rect: (%d,%d)-(%d,%d)", rect->left, rect->top, rect->right, rect->bottom);
+#if ZJD_DEBUG
+    ZJD_LOG("Decoded rect: (%d,%d)-(%d,%d)", rect->x, rect->y, rect->w, rect->h);
 #else
     // Output the decoded bitmap data
     uint8_t *pix = (uint8_t *)pixels;

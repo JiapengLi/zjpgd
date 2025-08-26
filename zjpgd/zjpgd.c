@@ -1041,3 +1041,8 @@ zjd_res_t zjd_scan(zjd_t *zjd, const zjd_ctx_t *snapshot, const zjd_rect_t *tgt_
 
     return ZJD_OK;
 }
+
+void zjd_save(const zjd_t *zjd, zjd_ctx_t *snapshot)
+{
+    memcpy(snapshot, &zjd->ctx, sizeof(zjd_ctx_t));
+}

@@ -217,13 +217,13 @@ static const zjd_yuv2pix_t zjd_yuv2pix_tab[] = {
 
 /*-------------------------------------------------------------------------*/
 // YUV Scan
-static void yuv400_scan(zjd_t *zjd, zjd_rect_t *mcu_rect, zjd_rect_t *tgt_rect)
+static void yuv400_scan(zjd_t *zjd, zjd_rect_t *mcu_rect, const zjd_rect_t *tgt_rect)
 {
     uint8_t *pix;
     zjd_yuv_t *py;
     int yy, cb = 0, cr = 0;
 
-    /* Build a RGB MCU from discrete comopnents */
+    /* Build a RGB MCU from discrete components */
     pix = (uint8_t *)zjd->workbuf;
     py = zjd->mcubuf;
     for (unsigned int iy = 0; iy < 8; iy++) {
@@ -236,7 +236,7 @@ static void yuv400_scan(zjd_t *zjd, zjd_rect_t *mcu_rect, zjd_rect_t *tgt_rect)
     zjd->ofunc(zjd, mcu_rect, zjd->workbuf);
 }
 
-static void yuv444_scan(zjd_t *zjd, zjd_rect_t *mcu_rect, zjd_rect_t *tgt_rect)
+static void yuv444_scan(zjd_t *zjd, zjd_rect_t *mcu_rect, const zjd_rect_t *tgt_rect)
 {
     uint8_t *pix = (uint8_t *)zjd->workbuf;
     zjd_yuv_t *py, *pcb, *pcr;
@@ -260,7 +260,7 @@ static void yuv444_scan(zjd_t *zjd, zjd_rect_t *mcu_rect, zjd_rect_t *tgt_rect)
     zjd->ofunc(zjd, mcu_rect, zjd->workbuf);
 }
 
-static void yuv422_scan(zjd_t *zjd, zjd_rect_t *mcu_rect, zjd_rect_t *tgt_rect)
+static void yuv422_scan(zjd_t *zjd, zjd_rect_t *mcu_rect, const zjd_rect_t *tgt_rect)
 {
     int iy, ix, icmp;
     zjd_yuv_t *py, *pcb, *pcr;
@@ -313,7 +313,7 @@ static void yuv422_scan(zjd_t *zjd, zjd_rect_t *mcu_rect, zjd_rect_t *tgt_rect)
     }
 }
 
-static void yuv420_scan(zjd_t *zjd, zjd_rect_t *mcu_rect, zjd_rect_t *tgt_rect)
+static void yuv420_scan(zjd_t *zjd, zjd_rect_t *mcu_rect, const zjd_rect_t *tgt_rect)
 {
     int iy, ix, icmp;
     zjd_yuv_t *py, *pcb, *pcr;
@@ -363,7 +363,7 @@ static void yuv420_scan(zjd_t *zjd, zjd_rect_t *mcu_rect, zjd_rect_t *tgt_rect)
     }
 }
 
-static zjd_res_t zjd_mcu_scan(zjd_t *zjd, uint8_t n_cmp, zjd_rect_t *mcu_rect, zjd_rect_t *tgt_rect)
+static zjd_res_t zjd_mcu_scan(zjd_t *zjd, uint8_t n_cmp, zjd_rect_t *mcu_rect, const zjd_rect_t *tgt_rect)
 {
     int cmp, i;
     zjd_comp_t *component;
@@ -655,7 +655,7 @@ static zjd_res_t zjd_sos_handler(zjd_t *zjd, zjd_tbl_t *tbl, const uint8_t *buf,
 
 /*-------------------------------------------------------------------------*/
 // API
-zjd_res_t zjd_init(zjd_t *zjd, zjd_cfg_t *cfg, zjd_outfmt_t outfmt)
+zjd_res_t zjd_init(zjd_t *zjd, const zjd_cfg_t *cfg)
 {
     uint8_t *buf;
     uint16_t marker;
@@ -761,7 +761,7 @@ zjd_res_t zjd_init(zjd_t *zjd, zjd_cfg_t *cfg, zjd_outfmt_t outfmt)
                 break;
             case 0xDA: /* SOS */
                 ZJD_LOG("SOS");
-                rc = zjd_sos_handler(zjd, tbl, buf, len, outfmt);
+                rc = zjd_sos_handler(zjd, tbl, buf, len, cfg->outfmt);
                 if (rc != ZJD_OK) {
                     return rc;
                 }
@@ -804,7 +804,7 @@ zjd_res_t zjd_init(zjd_t *zjd, zjd_cfg_t *cfg, zjd_outfmt_t outfmt)
 
 /* snapshot: used to control where to start, and where to resume
    tgt_rect: target rectangle is used for  */
-zjd_res_t zjd_scan(zjd_t *zjd, zjd_ctx_t *snapshot, zjd_rect_t *tgt_rect)
+zjd_res_t zjd_scan(zjd_t *zjd, const zjd_ctx_t *snapshot, const zjd_rect_t *tgt_rect)
 {
     int32_t dc = 0;
     uint8_t *dp;

@@ -97,7 +97,7 @@ typedef struct zjd zjd_t;
 
 typedef int (*zjd_ifunc_t)(zjd_t *, uint8_t *buf, uint32_t addr, int len);
 typedef int (*zjd_ofunc_t)(zjd_t *, zjd_rect_t *, void *);
-typedef void (*zjd_yuv_scan_t)(zjd_t *, zjd_rect_t *mcu_rect, zjd_rect_t *tgt_rect);
+typedef void (*zjd_yuv_scan_t)(zjd_t *, zjd_rect_t *mcu_rect, const zjd_rect_t *tgt_rect);
 typedef void (*zjd_yuv2pix_t)(uint8_t **pix, int yy, int cb, int cr);
 
 typedef struct {
@@ -111,6 +111,7 @@ typedef struct {
 } zjd_ctx_t;
 
 typedef struct {
+    zjd_outfmt_t outfmt;
     zjd_ifunc_t ifunc;
     zjd_ofunc_t ofunc;
     void *buf;
@@ -144,7 +145,7 @@ struct zjd {
     void *arg;
 };
 
-zjd_res_t zjd_init(zjd_t *zjd, zjd_cfg_t *cfg, zjd_outfmt_t outfmt);
-zjd_res_t zjd_scan(zjd_t *zjd, zjd_ctx_t *snapshot, zjd_rect_t *tgt_rect);
+zjd_res_t zjd_init(zjd_t *zjd, const zjd_cfg_t *cfg);
+zjd_res_t zjd_scan(zjd_t *zjd, const zjd_ctx_t *snapshot, const zjd_rect_t *tgt_rect);
 
 #endif /* __ZJPGD_H__ */

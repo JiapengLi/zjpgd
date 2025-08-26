@@ -159,12 +159,13 @@ int main(int argc, char **argv)
     }
 
     printf("Preparing JPEG decoder...\n");
+    cfg.outfmt = outfmt;
     cfg.ifunc = zjd_ifunc;  // User-defined input function
     cfg.ofunc = zjd_ofunc;  // User-defined output function
     cfg.buf = work;        // Work buffer
     cfg.buflen = sizeof(work);
     cfg.arg = (void *)fp;
-    res = zjd_init(&zjd, &cfg, outfmt);
+    res = zjd_init(&zjd, &cfg);
     if (res != ZJD_OK) {
         printf("Failed to prepare JPEG decoder %d\n", res);
         fclose(fp);
@@ -200,8 +201,8 @@ int main(int argc, char **argv)
     printf("\n\n\n");
 
     printf("sizeof(zjd_t): %zu\n", sizeof(zjd_t));
-    printf("Memory Pool: %d\n", sizeof(work) - zjd.buflen);
-    printf("%s Total: %d\n", argv[1], sizeof(zjd_t) + sizeof(work) - zjd.buflen);
+    printf("Memory Pool: %zd\n", sizeof(work) - zjd.buflen);
+    printf("%s Total: %zd\n", argv[1], sizeof(zjd_t) + sizeof(work) - zjd.buflen);
 
     return 0;
 }

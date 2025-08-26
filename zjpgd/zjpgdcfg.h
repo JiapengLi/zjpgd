@@ -6,7 +6,7 @@
 #endif
 
 #ifndef ZJD_DEBUG
-#   define ZJD_DEBUG                    1
+#   define ZJD_DEBUG                    0
 #endif
 
 #if ZJD_DEBUG

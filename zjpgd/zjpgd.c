@@ -823,32 +823,29 @@ zjd_res_t zjd_scan(zjd_t *zjd, const zjd_ctx_t *snapshot, const zjd_rect_t *tgt_
     uint8_t last_d = 0, d = 0, dbit = 0, cnt = 0, cmp = 0, cls = 0, bl0, bl1, val, zeros;
     uint32_t dreg = 0;
     int ebits, dcac = 0;
-    uint8_t bits_threshold = 15, n_y, n_cmp;
-    int x = 0, y = 0;
+    uint8_t bits_threshold = 15;
+    int n_cmp;
     bool next_huff = true;
     zjd_rect_t _mcu_rect, *mcu_rect = &_mcu_rect;
 
     zjd_comp_t *component = &zjd->component[cmp];
     zjd_yuv_t *mcubuf = &zjd->mcubuf[cmp << 6];   // cmp * 64
     zjd_ctx_t *ctx = &zjd->ctx;
-
-    n_y = zjd->msy * zjd->msx; /* Number of Y blocks in the MCU */
-    if (zjd->ncomp == 1) {
-        n_cmp = n_y;
-    } else if (zjd->ncomp == 3) {
-        n_cmp = n_y + 2;
-    } else {
-        return ZJD_ERR_PARA;
+    n_cmp = zjd->msy * zjd->msx;
+    if (zjd->ncomp == 3) {
+        n_cmp += 2;
     }
 
-    /* n_y: 1, 2, 4, ncomp: 1, 3 */
-    x = 0;
-    y = 0;
+    mcu_rect->x = 0;
+    mcu_rect->y = 0;
+    mcu_rect->w = zjd->msx << 3; /* MCU width in pixel */
+    mcu_rect->h = zjd->msy << 3; /* MCU height in pixel */
+
     memset(mcubuf, 0, 64 * sizeof(zjd_yuv_t));
 
     if (snapshot) {
-        x = snapshot->mcu_x;
-        y = snapshot->mcu_y;
+        mcu_rect->x = snapshot->mcu_x;
+        mcu_rect->y = snapshot->mcu_y;
         d = snapshot->d;
         dbit = snapshot->dbit;
         dreg = snapshot->dreg;
@@ -863,8 +860,8 @@ zjd_res_t zjd_scan(zjd_t *zjd, const zjd_ctx_t *snapshot, const zjd_rect_t *tgt_
     ctx->dreg = dreg;
     ctx->dbit = dbit;
     ctx->d = d;
-    ctx->mcu_x = x;
-    ctx->mcu_y = y;
+    ctx->mcu_x = mcu_rect->x;
+    ctx->mcu_y = mcu_rect->y;
     ctx->dcv[0] = zjd->dcv[0];
     ctx->dcv[1] = zjd->dcv[1];
     ctx->dcv[2] = zjd->dcv[2];
@@ -920,7 +917,7 @@ zjd_res_t zjd_scan(zjd_t *zjd, const zjd_ctx_t *snapshot, const zjd_rect_t *tgt_
                 cls = !!cnt;
 
                 ZJD_LOG("(x: %d, y: %d), cmp %u, %s table, cls %d, cnt %d, dreg %08X, dbit %u",
-                       x, y, cmp, cls == 0 ? "DC" : "AC", cls, cnt, dreg, dbit);
+                       mcu_rect->x, mcu_rect->y, cmp, cls == 0 ? "DC" : "AC", cls, cnt, dreg, dbit);
 
                 bl0 = zjd_get_hc(&component->huff[cls], dreg, dbit, &val);
                 if (!bl0) {
@@ -996,10 +993,6 @@ zjd_res_t zjd_scan(zjd_t *zjd, const zjd_ctx_t *snapshot, const zjd_rect_t *tgt_
                     if (cmp >= n_cmp) {
                         cmp = 0;
 
-                        mcu_rect->x = x;
-                        mcu_rect->y = y;
-                        mcu_rect->w = zjd->msx << 3;
-                        mcu_rect->h = zjd->msy << 3;
                         if (tgt_rect == NULL) {
                             zjd_mcu_scan(zjd, n_cmp, mcu_rect, tgt_rect);
                         } else {
@@ -1015,11 +1008,11 @@ zjd_res_t zjd_scan(zjd_t *zjd, const zjd_ctx_t *snapshot, const zjd_rect_t *tgt_
                             }
                         }
 
-                        x += zjd->msx << 3;
-                        if (x >= zjd->width) {
-                            x = 0;
-                            y += zjd->msy << 3;
-                            if (y >= zjd->height) {
+                        mcu_rect->x += mcu_rect->w;
+                        if (mcu_rect->x >= zjd->width) {
+                            mcu_rect->x = 0;
+                            mcu_rect->y += mcu_rect->h;
+                            if (mcu_rect->y >= zjd->height) {
                                 ZJD_LOG("All MCUs processed (%u padding bits: %X)", dbit, dreg >> (32 - dbit));
                                 return ZJD_OK;
                             }
@@ -1030,8 +1023,8 @@ zjd_res_t zjd_scan(zjd_t *zjd, const zjd_ctx_t *snapshot, const zjd_rect_t *tgt_
                         ctx->dreg = dreg;
                         ctx->dbit = dbit;
                         ctx->d = d;
-                        ctx->mcu_x = x;
-                        ctx->mcu_y = y;
+                        ctx->mcu_x = mcu_rect->x;
+                        ctx->mcu_y = mcu_rect->y;
                         ctx->dcv[0] = zjd->dcv[0];
                         ctx->dcv[1] = zjd->dcv[1];
                         ctx->dcv[2] = zjd->dcv[2];

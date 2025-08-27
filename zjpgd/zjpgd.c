@@ -838,15 +838,13 @@ zjd_res_t zjd_scan(zjd_t *zjd, const zjd_ctx_t *snapshot, const zjd_rect_t *tgt_
 
     mcu_rect->x = 0;
     mcu_rect->y = 0;
-    mcu_rect->w = zjd->msx << 3; /* MCU width in pixel */
-    mcu_rect->h = zjd->msy << 3; /* MCU height in pixel */
-
+    mcu_rect->w = zjd->msx << 3;
+    mcu_rect->h = zjd->msy << 3;
     memset(mcubuf, 0, 64 * sizeof(zjd_yuv_t));
 
     if (snapshot) {
         mcu_rect->x = snapshot->mcu_x;
         mcu_rect->y = snapshot->mcu_y;
-        d = snapshot->d;
         dbit = snapshot->dbit;
         dreg = snapshot->dreg;
         zjd->dcv[0] = snapshot->dcv[0];
@@ -859,7 +857,6 @@ zjd_res_t zjd_scan(zjd_t *zjd, const zjd_ctx_t *snapshot, const zjd_rect_t *tgt_
     ctx->offset = zjd->oft;
     ctx->dreg = dreg;
     ctx->dbit = dbit;
-    ctx->d = d;
     ctx->mcu_x = mcu_rect->x;
     ctx->mcu_y = mcu_rect->y;
     ctx->dcv[0] = zjd->dcv[0];
@@ -882,17 +879,19 @@ zjd_res_t zjd_scan(zjd_t *zjd, const zjd_ctx_t *snapshot, const zjd_rect_t *tgt_
         //     return ZJD_ERR_SCAN_SLOW;
         // }
 
-        last_d = d;
+        // last_d = d;
         d = *dp++;
         zjd->oft++;
 
         if (d == 0xFF) {
+            last_d = d;
             continue;
         } else if (last_d == 0xFF) {
+            last_d = 0;
             ZJD_LOG("Found marker %02X", d);
             if (d == 0x00) {
                 ZJD_LOG("Padding byte");
-                dreg = (dreg & ~(0xFFFFFFFF >> dbit)) | ((uint32_t)0xFF << (32 - dbit - 8));
+                dreg = (dreg & ~(0xFFFFFFFF >> dbit)) | ((uint32_t)0xFF << (32 - 8 - dbit));
                 dbit += 8;
             } else {
                 if (d == 0xD9) {
@@ -906,7 +905,7 @@ zjd_res_t zjd_scan(zjd_t *zjd, const zjd_ctx_t *snapshot, const zjd_rect_t *tgt_
                 }
             }
         } else {
-            dreg = (dreg & ~(0xFFFFFFFF >> dbit)) | ((uint32_t)d << (32 - dbit - 8));
+            dreg = (dreg & ~(0xFFFFFFFF >> dbit)) | ((uint32_t)d << (32 - 8 - dbit));
             dbit += 8;
         }
 
@@ -1022,14 +1021,13 @@ zjd_res_t zjd_scan(zjd_t *zjd, const zjd_ctx_t *snapshot, const zjd_rect_t *tgt_
                         ctx->offset = zjd->oft;
                         ctx->dreg = dreg;
                         ctx->dbit = dbit;
-                        ctx->d = d;
                         ctx->mcu_x = mcu_rect->x;
                         ctx->mcu_y = mcu_rect->y;
                         ctx->dcv[0] = zjd->dcv[0];
                         ctx->dcv[1] = zjd->dcv[1];
                         ctx->dcv[2] = zjd->dcv[2];
-                        ZJD_LOG("MCU context updated: oft %u, dreg %08X, dbit %u, d %u, x %u, y %u, dcv %d %d %d",
-                                ctx->offset, ctx->dreg, ctx->dbit, ctx->d,
+                        ZJD_LOG("MCU context updated: oft %u, dreg %08X, dbit %u, x %u, y %u, dcv %d %d %d",
+                                ctx->offset, ctx->dreg, ctx->dbit,
                                 ctx->mcu_x, ctx->mcu_y,
                                 ctx->dcv[0], ctx->dcv[1], ctx->dcv[2]
                             );

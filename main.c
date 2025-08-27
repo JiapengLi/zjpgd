@@ -180,7 +180,7 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    printf("\n\nStarting ROI JPEG decompression\n");
+    printf("\n\nStarting ROI JPEG decompression \n");
     res = zjd_scan(&zjd, &snapshot[0], roi_rect);
     if (res != ZJD_OK) {
         printf("Failed to start JPEG decompression %d\n", res);

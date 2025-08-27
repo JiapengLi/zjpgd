@@ -105,7 +105,6 @@ typedef struct {
     uint32_t offset;
     uint32_t dreg;
     int8_t dbit;
-    uint8_t d;
     uint16_t mcu_x;
     uint16_t mcu_y;
     int16_t dcv[3];

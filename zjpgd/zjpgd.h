@@ -86,13 +86,14 @@ typedef struct {
     uint8_t *data;
 } zjd_huff_t;
 
+typedef int16_t zjd_yuv_t;
+
 typedef struct {
     zjd_huff_t huff[2];
     int32_t *qttbl;
     int16_t *dcv;
+    zjd_yuv_t *mcubuf;
 } zjd_comp_t;
-
-typedef int16_t zjd_yuv_t;
 
 typedef struct zjd zjd_t;
 

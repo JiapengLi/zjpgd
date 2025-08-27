@@ -272,12 +272,12 @@ static void yuv422_scan(zjd_t *zjd, zjd_rect_t *mcu_rect, const zjd_rect_t *tgt_
     zjd_rect_t rect;
 
     // 4 blocks: Y1, Y2, Cb, Cr → 16x8 Y region
-    pcb = zjd->mcubuf + 64 * 2;   // Cb block starts after Y1 + Y2
-    pcr = pcb + 64;              // Cr block starts after Cb
+    pcb = zjd->component[2].mcubuf;     // Cb block starts after Y1 + Y2
+    pcr = zjd->component[3].mcubuf;     // Cr block starts after Cb
 
     // Loop through the two Y blocks (icmp = 0: left, 1: right)
     for (icmp = 0; icmp < 2; icmp++) {
-        py = zjd->mcubuf + icmp * 64;
+        py = zjd->component[icmp].mcubuf;
         pix = (uint8_t *)zjd->workbuf;
 
         // Block positions: 0=(0,0), 1=(8,0)
@@ -325,11 +325,11 @@ static void yuv420_scan(zjd_t *zjd, zjd_rect_t *mcu_rect, const zjd_rect_t *tgt_
     zjd_rect_t rect;
 
     // 6 blocks: Y1,Y2,Y3,Y4,Cb,Cr
-    pcb = zjd->mcubuf + 64 * 4;     // Cb block起点
-    pcr = pcb + 64;                // Cr block起点
+    pcb = zjd->component[4].mcubuf; // Cb block start
+    pcr = zjd->component[5].mcubuf; // Cr block start
 
     for (icmp = 0; icmp < 4; icmp++) {
-        py = zjd->mcubuf + icmp * 64;
+        py = zjd->component[icmp].mcubuf;
         pix = (uint8_t *)zjd->workbuf;
 
         // 0: (0, 0), 1: (8, 0), 2: (0, 8), 3: (8, 8)
@@ -373,7 +373,7 @@ static zjd_res_t zjd_mcu_scan(zjd_t *zjd, uint8_t n_cmp, zjd_rect_t *mcu_rect, c
     /* dequantize && idct */
     for (cmp = 0; cmp < n_cmp; cmp++) {
         component = &zjd->component[cmp];
-        p = &zjd->mcubuf[cmp << 6];      // cmp * 64
+        p = component->mcubuf;
         ZJD_LOG("Component %d:", cmp);
         for (i = 0; i < 64; i++) {
             if (p[i]) {
@@ -594,6 +594,12 @@ static zjd_res_t zjd_sos_handler(zjd_t *zjd, zjd_tbl_t *tbl, const uint8_t *buf,
         return ZJD_ERR_FMT1;    /* Err: SOF0 has not been loaded */
     }
 
+    /* Allocate MCU working buffer */
+    zjd->mcubuf = zjd_malloc(zjd, (n + 2) * 64 * sizeof(zjd_yuv_t));
+    if (!zjd->mcubuf) {
+        return ZJD_ERR_OOM1;
+    }
+
     /* Y */
     for (i = 0; i < n; i++) {
         zjd->component[i].huff[0].bits = tbl->huffbits[0][0];
@@ -604,7 +610,7 @@ static zjd_res_t zjd_sos_handler(zjd_t *zjd, zjd_tbl_t *tbl, const uint8_t *buf,
         zjd->component[i].huff[1].data = tbl->huffdata[0][1];
         zjd->component[i].qttbl = tbl->qttbl[tbl->qtid[0]];
         zjd->component[i].dcv = &zjd->dcv[0];
-
+        zjd->component[i].mcubuf = &zjd->mcubuf[i * 64];
         ZJD_LOG("huff[%d]", i);
     }
 
@@ -619,15 +625,9 @@ static zjd_res_t zjd_sos_handler(zjd_t *zjd, zjd_tbl_t *tbl, const uint8_t *buf,
             zjd->component[n + i].huff[1].data = tbl->huffdata[1][1];
             zjd->component[n + i].qttbl = tbl->qttbl[tbl->qtid[i + 1]];
             zjd->component[n + i].dcv = &zjd->dcv[i + 1];
-
+            zjd->component[n + i].mcubuf = &zjd->mcubuf[(n + i) * 64];
             ZJD_LOG("huff[%d]", n + i);
         }
-    }
-
-    /* Allocate MCU working buffer */
-    zjd->mcubuf = zjd_malloc(zjd, (n + 2) * 64 * sizeof(zjd_yuv_t));
-    if (!zjd->mcubuf) {
-        return ZJD_ERR_OOM1;
     }
 
     /* Reuse remained buf and buflen as cache */
@@ -829,7 +829,6 @@ zjd_res_t zjd_scan(zjd_t *zjd, const zjd_ctx_t *snapshot, const zjd_rect_t *tgt_
     zjd_rect_t _mcu_rect, *mcu_rect = &_mcu_rect;
 
     zjd_comp_t *component = &zjd->component[cmp];
-    zjd_yuv_t *mcubuf = &zjd->mcubuf[cmp << 6];   // cmp * 64
     zjd_ctx_t *ctx = &zjd->ctx;
 
     n_cmp = zjd->msy * zjd->msx;
@@ -841,7 +840,7 @@ zjd_res_t zjd_scan(zjd_t *zjd, const zjd_ctx_t *snapshot, const zjd_rect_t *tgt_
     mcu_rect->y = 0;
     mcu_rect->w = zjd->msx << 3;
     mcu_rect->h = zjd->msy << 3;
-    memset(mcubuf, 0, 64 * sizeof(zjd_yuv_t));
+    memset(component->mcubuf, 0, 64 * sizeof(zjd_yuv_t));
 
     if (snapshot) {
         mcu_rect->x = snapshot->mcu_x;
@@ -973,7 +972,7 @@ zjd_res_t zjd_scan(zjd_t *zjd, const zjd_ctx_t *snapshot, const zjd_rect_t *tgt_
                         }
 
                         /* reverse zigzag */
-                        mcubuf[ZIGZAG[cnt]] = dcac;
+                        component->mcubuf[ZIGZAG[cnt]] = dcac;
 
                         dbit -= bl1;
                         dreg <<= bl1;
@@ -990,7 +989,7 @@ zjd_res_t zjd_scan(zjd_t *zjd, const zjd_ctx_t *snapshot, const zjd_rect_t *tgt_
                 if (cnt == 64) {
                     cnt = 0;
 
-                    ZJD_INTDUMP(mcubuf, 64);
+                    ZJD_INTDUMP(component->mcubuf, 64);
                     ZJD_LOG("");
 
                     cmp++;
@@ -1037,10 +1036,9 @@ zjd_res_t zjd_scan(zjd_t *zjd, const zjd_ctx_t *snapshot, const zjd_rect_t *tgt_
                                 ctx->dcv[0], ctx->dcv[1], ctx->dcv[2]
                             );
                     }
-                    component = &zjd->component[cmp];
-                    mcubuf = &zjd->mcubuf[cmp << 6];     // cmp * 64
 
-                    memset(mcubuf, 0, 64 * sizeof(zjd_yuv_t));
+                    component = &zjd->component[cmp];
+                    memset(component->mcubuf, 0, 64 * sizeof(zjd_yuv_t));
                 }
             }
         }

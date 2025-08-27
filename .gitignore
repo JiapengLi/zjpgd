@@ -2,3 +2,5 @@
 *.exe
 images
 build-*
+zjdcli
+zjdcli_debug

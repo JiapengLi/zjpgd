@@ -831,6 +831,7 @@ zjd_res_t zjd_scan(zjd_t *zjd, const zjd_ctx_t *snapshot, const zjd_rect_t *tgt_
     zjd_comp_t *component = &zjd->component[cmp];
     zjd_yuv_t *mcubuf = &zjd->mcubuf[cmp << 6];   // cmp * 64
     zjd_ctx_t *ctx = &zjd->ctx;
+
     n_cmp = zjd->msy * zjd->msx;
     if (zjd->ncomp == 3) {
         n_cmp += 2;
@@ -879,7 +880,6 @@ zjd_res_t zjd_scan(zjd_t *zjd, const zjd_ctx_t *snapshot, const zjd_rect_t *tgt_
         //     return ZJD_ERR_SCAN_SLOW;
         // }
 
-        // last_d = d;
         d = *dp++;
         zjd->oft++;
 
@@ -913,6 +913,9 @@ zjd_res_t zjd_scan(zjd_t *zjd, const zjd_ctx_t *snapshot, const zjd_rect_t *tgt_
 
         while (dbit > bits_threshold) {
             if (next_huff) {
+                next_huff = !next_huff;
+
+                /* 0: DC, others: AC */
                 cls = !!cnt;
 
                 ZJD_LOG("(x: %d, y: %d), cmp %u, %s table, cls %d, cnt %d, dreg %08X, dbit %u",
@@ -926,16 +929,18 @@ zjd_res_t zjd_scan(zjd_t *zjd, const zjd_ctx_t *snapshot, const zjd_rect_t *tgt_
 
                 dbit -= bl0;
                 dreg <<= bl0;
-                next_huff = false;
 
                 ZJD_LOG("processing huff, bl0 %d, val %02X", bl0, val);
 
+                /* continue to check if need to load dreg again */
                 if (val != 0) {
                     continue;
                 }
             }
 
             if (!next_huff) {
+                next_huff = !next_huff;
+
                 ZJD_LOG("processing bits, cnt %d val %02X", cnt, val);
 
                 if ((val != 0) || (cnt == 0)) {
@@ -1037,7 +1042,6 @@ zjd_res_t zjd_scan(zjd_t *zjd, const zjd_ctx_t *snapshot, const zjd_rect_t *tgt_
 
                     memset(mcubuf, 0, 64 * sizeof(zjd_yuv_t));
                 }
-                next_huff = true;
             }
         }
     }

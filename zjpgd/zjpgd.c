@@ -257,6 +257,10 @@ static int yuv444_scan(zjd_t *zjd, zjd_rect_t *mcu_rect, const zjd_rect_t *tgt_r
         }
     }
 
+    ZJD_LOG("RGB888 (YUV444): (x:%u,y:%u)-(%u,%u)", mcu_rect->x, mcu_rect->y, mcu_rect->w, mcu_rect->h);
+    pix = (uint8_t *)zjd->workbuf;
+    ZJD_RGBDUMP(pix, 3 * 64);
+
     return zjd->ofunc(zjd, mcu_rect, zjd->workbuf);
 }
 
@@ -649,12 +653,16 @@ static zjd_res_t zjd_sos_handler(zjd_t *zjd, zjd_tbl_t *tbl, const uint8_t *buf,
 
     /* Convert to RGB */
     if ((zjd->ncomp == 1) && (zjd->msx == 1) && (zjd->msy == 1)) {
+        ZJD_LOG("YUV400");
         zjd->yuv_scan = yuv400_scan;
     } else if ((zjd->ncomp == 3) && (zjd->msx == 1) && (zjd->msy == 1)) {
+        ZJD_LOG("YUV444");
         zjd->yuv_scan = yuv444_scan;
     } else if ((zjd->ncomp == 3) && (zjd->msx == 2) && (zjd->msy == 2)) {
+        ZJD_LOG("YUV420");
         zjd->yuv_scan = yuv420_scan;
     } else if ((zjd->ncomp == 3) && (zjd->msx == 2) && (zjd->msy == 1)) {
+        ZJD_LOG("YUV422");
         zjd->yuv_scan = yuv422_scan;
     } else {
         return ZJD_ERR_YUV;
@@ -901,6 +909,7 @@ zjd_res_t zjd_scan_full(zjd_t *zjd)
                     bits_threshold = 0;
                     rst = true;
                 } else {
+                    ZJD_LOG("###Unknown marker %02X", d);
                     continue;
                 }
             }
@@ -909,7 +918,7 @@ zjd_res_t zjd_scan_full(zjd_t *zjd)
             dbit += 8;
         }
 
-        ZJD_LOG("Buffer: %08X %u %02X", dreg, dbit, d);
+        //ZJD_LOG("Buffer: %08X %u %02X", dreg, dbit, d);
 
         while (dbit > bits_threshold) {
             if (next_huff) {
@@ -918,8 +927,8 @@ zjd_res_t zjd_scan_full(zjd_t *zjd)
                 /* 0: DC, others: AC */
                 cls = !!cnt;
 
-                ZJD_LOG("(x: %d, y: %d), cmp %u, %s table, cls %d, cnt %d, dreg %08X, dbit %u",
-                       mcu_rect->x, mcu_rect->y, cmp, cls == 0 ? "DC" : "AC", cls, cnt, dreg, dbit);
+                // ZJD_LOG("(x: %d, y: %d), cmp %u, %s table, cls %d, cnt %d, dreg %08X, dbit %u, dcv %d,%d,%d",
+                //        mcu_rect->x, mcu_rect->y, cmp, cls == 0 ? "DC" : "AC", cls, cnt, dreg, dbit, zjd->dcv[0], zjd->dcv[1], zjd->dcv[2]);
 
                 bl0 = zjd_get_hc(&component->huff[cls], dreg, dbit, &val);
                 if (!bl0) {
@@ -931,7 +940,7 @@ zjd_res_t zjd_scan_full(zjd_t *zjd)
                 dbit -= bl0;
                 dreg <<= bl0;
 
-                ZJD_LOG("processing huff, bl0 %d, val %02X", bl0, val);
+                ZJD_LOG("processing huff, cmp %u, cnt %d, cls %u, bl0 %u, val %02X", cmp, cnt, cls, bl0, val);
 
                 /* continue to check if need to load dreg again */
                 if (val != 0) {
@@ -942,7 +951,7 @@ zjd_res_t zjd_scan_full(zjd_t *zjd)
             if (!next_huff) {
                 next_huff = !next_huff;
 
-                ZJD_LOG("processing bits, cnt %d val %02X", cnt, val);
+                // ZJD_LOG("processing bits, cnt %d val %02X", cnt, val);
 
                 if ((val != 0) || (cnt == 0)) {
                     zeros = val >> 4;
@@ -954,7 +963,6 @@ zjd_res_t zjd_scan_full(zjd_t *zjd)
                     }
 
                     cnt += zeros;
-
                     if (bl1) {
                         ebits = (int)(dreg >> (32 - bl1));
                         if (!(dreg & 0x80000000)) {
@@ -981,10 +989,10 @@ zjd_res_t zjd_scan_full(zjd_t *zjd)
 
                         dbit -= bl1;
                         dreg <<= bl1;
-                        cnt += 1;
                     }
+                    cnt += 1;
                 } else {
-                    /* EOB detected */
+                    ZJD_LOG("EOB detected");
                     if (cnt == 1) {
                         /* all ac value are zero */
                         skip_idct = true;
@@ -994,9 +1002,10 @@ zjd_res_t zjd_scan_full(zjd_t *zjd)
                     ebits = 0;
                 }
 
-                ZJD_LOG("Found Huffman code: %08X %u | %u %02X %d %d %d", dreg, dbit, bl0, val, *component->dcv, ebits, dcac);
+                // ZJD_LOG("Found Huffman code: %08X %u | %u %02X %d %d %d", dreg, dbit, bl0, val, *component->dcv, ebits, dcac);
                 if (cnt == 64) {
                     cnt = 0;
+
                     if (skip_idct) {
                         skip_idct = false;
                         component->mcubuf[0] = (zjd_yuv_t)((tmp[0] >> 8) + 128);
@@ -1007,6 +1016,7 @@ zjd_res_t zjd_scan_full(zjd_t *zjd)
                         block_idct(tmp, component->mcubuf);
                     }
 
+                    ZJD_LOG("MCU %d,%d, component %d:", mcu_rect->x, mcu_rect->y, cmp);
                     ZJD_INTDUMP(component->mcubuf, 64);
                     ZJD_LOG("");
 
@@ -1238,8 +1248,8 @@ zjd_res_t zjd_scan_rect(zjd_t *zjd, const zjd_ctx_t *snapshot, const zjd_rect_t 
 
                         dbit -= bl1;
                         dreg <<= bl1;
-                        cnt += 1;
                     }
+                    cnt += 1;
                 } else {
                     /* EOB detected */
                     zeros = 0;

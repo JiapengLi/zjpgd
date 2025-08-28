@@ -4,3 +4,7 @@ images
 build-*
 zjdcli
 zjdcli_debug
+*.txt
+output_zjpgd.bmp
+zjdtest
+zjdtest_debug

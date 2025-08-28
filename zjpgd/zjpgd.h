@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
+#include <stdio.h>
 
 #include "zjpgdcfg.h"
 
@@ -63,6 +64,9 @@ typedef enum {
     ZJD_ERR_SCAN_SLOW = -30,
     ZJD_ERR_PARA = -31,
 
+    ZJD_ERR_OOM2 = -32,
+    ZJD_ERR_FMT4 = -33,
+
 } zjd_res_t;
 
 typedef struct {
@@ -99,7 +103,7 @@ typedef struct zjd zjd_t;
 
 typedef int (*zjd_ifunc_t)(zjd_t *, uint8_t *buf, uint32_t addr, int len);
 typedef int (*zjd_ofunc_t)(zjd_t *, zjd_rect_t *rect, void *pixels);
-typedef void (*zjd_yuv_scan_t)(zjd_t *, zjd_rect_t *mcu_rect, const zjd_rect_t *tgt_rect);
+typedef int (*zjd_yuv_scan_t)(zjd_t *, zjd_rect_t *mcu_rect, const zjd_rect_t *tgt_rect);
 typedef void (*zjd_yuv2pix_t)(uint8_t **pix, int yy, int cb, int cr);
 
 typedef struct {
@@ -130,6 +134,7 @@ struct zjd {
     uint8_t ncomp;
     uint16_t width;
     uint16_t height;
+    uint32_t imgoft;
 
     uint32_t oft;
     uint32_t pos;

@@ -175,15 +175,15 @@ int main(int argc, char **argv)
     printf("\n\nStarting FULL JPEG decompression\n");
     res = zjd_scan(&zjd, NULL, NULL);
     if (res != ZJD_OK) {
-        printf("Failed to start JPEG decompression %d\n", res);
+        printf("Failed to start JPEG FULL decompression %d\n", res);
         fclose(fp);
         return 1;
     }
 
     printf("\n\nStarting ROI JPEG decompression \n");
-    res = zjd_scan(&zjd, &snapshot[0], roi_rect);
+    res = zjd_scan(&zjd, NULL, roi_rect);
     if (res != ZJD_OK) {
-        printf("Failed to start JPEG decompression %d\n", res);
+        printf("Failed to start JPEG ROI decompression %d\n", res);
         fclose(fp);
         return 1;
     }

@@ -217,7 +217,7 @@ static const zjd_yuv2pix_t zjd_yuv2pix_tab[] = {
 
 /*-------------------------------------------------------------------------*/
 // YUV Scan
-static void yuv400_scan(zjd_t *zjd, zjd_rect_t *mcu_rect, const zjd_rect_t *tgt_rect)
+static int yuv400_scan(zjd_t *zjd, zjd_rect_t *mcu_rect, const zjd_rect_t *tgt_rect)
 {
     uint8_t *pix;
     zjd_yuv_t *py;
@@ -233,10 +233,10 @@ static void yuv400_scan(zjd_t *zjd, zjd_rect_t *mcu_rect, const zjd_rect_t *tgt_
         }
     }
 
-    zjd->ofunc(zjd, mcu_rect, zjd->workbuf);
+    return zjd->ofunc(zjd, mcu_rect, zjd->workbuf);
 }
 
-static void yuv444_scan(zjd_t *zjd, zjd_rect_t *mcu_rect, const zjd_rect_t *tgt_rect)
+static int yuv444_scan(zjd_t *zjd, zjd_rect_t *mcu_rect, const zjd_rect_t *tgt_rect)
 {
     uint8_t *pix = (uint8_t *)zjd->workbuf;
     zjd_yuv_t *py, *pcb, *pcr;
@@ -257,10 +257,10 @@ static void yuv444_scan(zjd_t *zjd, zjd_rect_t *mcu_rect, const zjd_rect_t *tgt_
         }
     }
 
-    zjd->ofunc(zjd, mcu_rect, zjd->workbuf);
+    return zjd->ofunc(zjd, mcu_rect, zjd->workbuf);
 }
 
-static void yuv422_scan(zjd_t *zjd, zjd_rect_t *mcu_rect, const zjd_rect_t *tgt_rect)
+static int yuv422_scan(zjd_t *zjd, zjd_rect_t *mcu_rect, const zjd_rect_t *tgt_rect)
 {
     int iy, ix, icmp;
     zjd_yuv_t *py, *pcb, *pcr;
@@ -309,11 +309,15 @@ static void yuv422_scan(zjd_t *zjd, zjd_rect_t *mcu_rect, const zjd_rect_t *tgt_
             }
         }
 
-        zjd->ofunc(zjd, &rect, zjd->workbuf);
+        if (!zjd->ofunc(zjd, &rect, zjd->workbuf)) {
+            return 0;
+        }
     }
+
+    return 1;
 }
 
-static void yuv420_scan(zjd_t *zjd, zjd_rect_t *mcu_rect, const zjd_rect_t *tgt_rect)
+static int yuv420_scan(zjd_t *zjd, zjd_rect_t *mcu_rect, const zjd_rect_t *tgt_rect)
 {
     int iy, ix, icmp;
     zjd_yuv_t *py, *pcb, *pcr;
@@ -358,12 +362,15 @@ static void yuv420_scan(zjd_t *zjd, zjd_rect_t *mcu_rect, const zjd_rect_t *tgt_
                 zjd->yuv2pix(&pix, yy, cb, cr);
             }
         }
-
-        zjd->ofunc(zjd, &rect, zjd->workbuf);
+        if (!zjd->ofunc(zjd, &rect, zjd->workbuf)) {
+            return 0;
+        }
     }
+
+    return 1;
 }
 
-static zjd_res_t zjd_mcu_scan(zjd_t *zjd, uint8_t n_cmp, zjd_rect_t *mcu_rect, const zjd_rect_t *tgt_rect)
+static int zjd_mcu_scan(zjd_t *zjd, uint8_t n_cmp, zjd_rect_t *mcu_rect, const zjd_rect_t *tgt_rect)
 {
     int cmp, i;
     zjd_comp_t *component;
@@ -390,9 +397,7 @@ static zjd_res_t zjd_mcu_scan(zjd_t *zjd, uint8_t n_cmp, zjd_rect_t *mcu_rect, c
     }
 
     /* scan & output */
-    zjd->yuv_scan(zjd, mcu_rect, tgt_rect);
-
-    return ZJD_OK;
+    return zjd->yuv_scan(zjd, mcu_rect, tgt_rect);
 }
 
 /*-------------------------------------------------------------------------*/
@@ -594,6 +599,15 @@ static zjd_res_t zjd_sos_handler(zjd_t *zjd, zjd_tbl_t *tbl, const uint8_t *buf,
         return ZJD_ERR_FMT1;    /* Err: SOF0 has not been loaded */
     }
 
+    /* Shared buffer
+        1. IDCT (64 * sizeof(int32_t))
+        2. RGB ((64 * sizeof(ARGB8888))) output
+    */
+    zjd->workbuf = zjd_malloc(zjd, 64 * 4);
+    if (!zjd->workbuf) {
+        return ZJD_ERR_OOM0;
+    }
+
     /* Allocate MCU working buffer */
     zjd->mcubuf = zjd_malloc(zjd, (n + 2) * 64 * sizeof(zjd_yuv_t));
     if (!zjd->mcubuf) {
@@ -650,6 +664,9 @@ static zjd_res_t zjd_sos_handler(zjd_t *zjd, zjd_tbl_t *tbl, const uint8_t *buf,
     zjd->yuv2pix = zjd_yuv2pix_tab[outfmt];
     ZJD_LOG("Output format: %d", outfmt);
 
+    /* Save compressed data address offset */
+    zjd->imgoft = zjd->oft;
+
     return ZJD_OK;
 }
 
@@ -657,6 +674,7 @@ static zjd_res_t zjd_sos_handler(zjd_t *zjd, zjd_tbl_t *tbl, const uint8_t *buf,
 // API
 zjd_res_t zjd_init(zjd_t *zjd, const zjd_cfg_t *cfg)
 {
+    uint8_t segs[4];
     uint8_t *buf;
     uint16_t marker;
     int32_t ret, len;
@@ -670,31 +688,19 @@ zjd_res_t zjd_init(zjd_t *zjd, const zjd_cfg_t *cfg)
     zjd->ofunc = cfg->ofunc;
     zjd->arg = cfg->arg;
 
-    /* Shared buffer
-        1. IDCT (64 * sizeof(int32_t))
-        2. RGB ((64 * sizeof(ARGB8888))) output
-        3. JPEG table cache
-    */
-    zjd->workbuf = zjd_malloc(zjd, 64 * 4);
-    if (!zjd->workbuf) {
-        return ZJD_ERR_OOM0;
-    }
-
     memset(tbl, 0, sizeof(zjd_tbl_t));
-
-    buf = zjd->workbuf;
     while (1) {
-        ret = zjd->ifunc(zjd, buf, zjd->oft, 2);
+        ret = zjd->ifunc(zjd, segs, zjd->oft, 2);
         if (ret != 2) {
             ZJD_LOG("ifunc error %d", ret);
             return ZJD_ERR_LEN0;
         }
         zjd->oft += ret;
 
-        if (buf[0] != 0xFF) {
+        if (segs[0] != 0xFF) {
             return ZJD_ERR_FMT0;
         }
-        marker = buf[1];
+        marker = segs[1];
         if (zjd->oft == 2) {
             if (marker != 0xD8) {
                 return ZJD_ERR_SOI;
@@ -702,14 +708,14 @@ zjd_res_t zjd_init(zjd_t *zjd, const zjd_cfg_t *cfg)
         }
 
         if ((marker < 0xD0) || (marker > 0xD9)) {
-            ret = zjd->ifunc(zjd, buf, zjd->oft, 2);
+            ret = zjd->ifunc(zjd, segs, zjd->oft, 2);
             if (ret != 2) {
                 ZJD_LOG("ifunc error %d", ret);
                 return ZJD_ERR_LEN1;
             }
             zjd->oft += ret;
 
-            len = buf[0] << 8 | buf[1];
+            len = segs[0] << 8 | segs[1];
             if (len <= 2) {
                 return ZJD_ERR_FMT1;
             }
@@ -727,15 +733,19 @@ zjd_res_t zjd_init(zjd_t *zjd, const zjd_cfg_t *cfg)
         case 0xDA:  /* SOS */
         case 0xDB:  /* DQT */
         case 0xDD:  /* DRI */
-            if (len > 64 * 4) {
+            if (len > zjd->buflen) {
+                ZJD_LOG("Too large segment %2X %d > %d", marker, len, zjd->buflen);
                 return ZJD_ERR_OOM1;
             }
+            buf = (uint8_t *)zjd->buf + (zjd->buflen - len);
             ret = zjd->ifunc(zjd, buf, zjd->oft, len);
             if (ret != len) {
                 ZJD_LOG("ifunc error %d", ret);
                 return ZJD_ERR_LEN1;
             }
             zjd->oft += ret;
+
+            ZJD_HEXDUMP(buf, len);
 
             switch (marker) {
             case 0xC4: /* DHT */
@@ -769,6 +779,10 @@ zjd_res_t zjd_init(zjd_t *zjd, const zjd_cfg_t *cfg)
                 zjd_log(zjd);
 #endif
                 return ZJD_OK;
+            }
+            if (zjd->buflen <= len) {
+                ZJD_LOG("No more buffer");
+                return ZJD_ERR_OOM1;
             }
             break;
         case 0xC1:  /* SOF1 */
@@ -807,16 +821,17 @@ zjd_res_t zjd_scan_full(zjd_t *zjd)
 {
     int32_t dc = 0;
     uint8_t *dp;
-    uint8_t last_d = 0, d = 0, dbit = 0, cnt = 0, cmp = 0, cls = 0, bl0, bl1, val, zeros;
+    uint8_t last_d = 0, d = 0, dbit = 0, cnt = 0, cmp = 0, cls = 0, bl0, bl1, val, zeros, i;
     uint32_t dreg = 0;
     int ebits, dcac = 0;
     uint8_t bits_threshold = 15;
     int n_cmp;
-    bool next_huff = true;
+    bool next_huff = true, skip_idct = false, rst = false;
     zjd_rect_t _mcu_rect, *mcu_rect = &_mcu_rect;
 
     zjd_comp_t *component = &zjd->component[cmp];
     zjd_ctx_t *ctx = &zjd->ctx;
+    int32_t *tmp = (int32_t *)zjd->workbuf;
 
     n_cmp = zjd->msy * zjd->msx;
     if (zjd->ncomp == 3) {
@@ -828,18 +843,14 @@ zjd_res_t zjd_scan_full(zjd_t *zjd)
     mcu_rect->w = zjd->msx << 3;
     mcu_rect->h = zjd->msy << 3;
     memset(component->mcubuf, 0, 64 * sizeof(zjd_yuv_t));
+    memset(tmp, 0, 64 * 4);
 
-    if (snapshot) {
-        mcu_rect->x = snapshot->mcu_x;
-        mcu_rect->y = snapshot->mcu_y;
-        dbit = snapshot->dbit;
-        dreg = snapshot->dreg;
-        zjd->dcv[0] = snapshot->dcv[0];
-        zjd->dcv[1] = snapshot->dcv[1];
-        zjd->dcv[2] = snapshot->dcv[2];
-        zjd->oft = snapshot->offset;
-        zjd->pos = zjd->oft;
-    }
+    zjd->oft = zjd->imgoft;
+    zjd->pos = zjd->oft;
+    zjd->dcv[0] = 0;
+    zjd->dcv[1] = 0;
+    zjd->dcv[2] = 0;
+
     /* take snapshot */
     ctx->offset = zjd->oft;
     ctx->dreg = dreg;
@@ -849,6 +860,8 @@ zjd_res_t zjd_scan_full(zjd_t *zjd)
     ctx->dcv[0] = zjd->dcv[0];
     ctx->dcv[1] = zjd->dcv[1];
     ctx->dcv[2] = zjd->dcv[2];
+
+    ZJD_LOG("full mode");
 
     while (1) {
         if (zjd->oft >= zjd->pos) {
@@ -883,10 +896,11 @@ zjd_res_t zjd_scan_full(zjd_t *zjd)
                 if (d == 0xD9) {
                     ZJD_LOG("EOI marker");
                     bits_threshold = 0;
+                } else if ((d >= 0xD0) && (d <= 0xD7)) {
+                    ZJD_LOG("RST marker %02X", d);
+                    bits_threshold = 0;
+                    rst = true;
                 } else {
-                    if ((d >= 0xD0) && (d <= 0xD7)) {
-                        ZJD_LOG("RST marker %02X", d);
-                    }
                     continue;
                 }
             }
@@ -909,6 +923,7 @@ zjd_res_t zjd_scan_full(zjd_t *zjd)
 
                 bl0 = zjd_get_hc(&component->huff[cls], dreg, dbit, &val);
                 if (!bl0) {
+                    dp = zjd->buf;
                     ZJD_LOG("bl0 Huffman code too short: %08X %u", dreg, dbit);
                     return ZJD_ERR_FMT1;
                 }
@@ -935,7 +950,7 @@ zjd_res_t zjd_scan_full(zjd_t *zjd)
 
                     if (dbit < bl1) {
                         ZJD_LOG("bl1 Huffman code too short: %08X %u < %u", dreg, dbit, bl1);
-                        return ZJD_ERR_FMT1;
+                        return ZJD_ERR_FMT4;
                     }
 
                     cnt += zeros;
@@ -959,7 +974,10 @@ zjd_res_t zjd_scan_full(zjd_t *zjd)
                         }
 
                         /* reverse zigzag */
-                        component->mcubuf[ZIGZAG[cnt]] = dcac;
+                        // component->mcubuf[ZIGZAG[cnt]] = dcac;
+
+                        i = ZIGZAG[cnt];
+                        tmp[i] = dcac * component->qttbl[i] >> 8;
 
                         dbit -= bl1;
                         dreg <<= bl1;
@@ -967,6 +985,10 @@ zjd_res_t zjd_scan_full(zjd_t *zjd)
                     }
                 } else {
                     /* EOB detected */
+                    if (cnt == 1) {
+                        /* all ac value are zero */
+                        skip_idct = true;
+                    }
                     zeros = 0;
                     cnt = 64;
                     ebits = 0;
@@ -975,6 +997,15 @@ zjd_res_t zjd_scan_full(zjd_t *zjd)
                 ZJD_LOG("Found Huffman code: %08X %u | %u %02X %d %d %d", dreg, dbit, bl0, val, *component->dcv, ebits, dcac);
                 if (cnt == 64) {
                     cnt = 0;
+                    if (skip_idct) {
+                        skip_idct = false;
+                        component->mcubuf[0] = (zjd_yuv_t)((tmp[0] >> 8) + 128);
+                        for (i = 1; i < 64; i++) {
+                            component->mcubuf[i] = component->mcubuf[0];
+                        }
+                    } else {
+                        block_idct(tmp, component->mcubuf);
+                    }
 
                     ZJD_INTDUMP(component->mcubuf, 64);
                     ZJD_LOG("");
@@ -983,19 +1014,9 @@ zjd_res_t zjd_scan_full(zjd_t *zjd)
                     if (cmp >= n_cmp) {
                         cmp = 0;
 
-                        if (tgt_rect == NULL) {
-                            zjd_mcu_scan(zjd, n_cmp, mcu_rect, tgt_rect);
-                        } else {
-                            if (is_rect_intersect(mcu_rect, tgt_rect)) {
-                                ZJD_LOG("MCU intersects with output rectangle (%u,%u,%u,%u) (%u,%u,%u,%u)\n",
-                                       mcu_rect->x, mcu_rect->y, mcu_rect->w, mcu_rect->h,
-                                       tgt_rect->x, tgt_rect->y, tgt_rect->w, tgt_rect->h);
-                                zjd_mcu_scan(zjd, n_cmp, mcu_rect, tgt_rect);
-
-                                if (is_r0_beyond_r1(mcu_rect, tgt_rect)) {
-                                    return ZJD_OK;
-                                }
-                            }
+                        if (!zjd->yuv_scan(zjd, mcu_rect, NULL)) {
+                            ZJD_LOG("Scan stopped by user");
+                            return ZJD_OK;
                         }
 
                         mcu_rect->x += mcu_rect->w;
@@ -1006,6 +1027,16 @@ zjd_res_t zjd_scan_full(zjd_t *zjd)
                                 ZJD_LOG("All MCUs processed (%u padding bits: %X)", dbit, dreg >> (32 - dbit));
                                 return ZJD_OK;
                             }
+                        }
+
+                        if (rst) {
+                            rst = false;
+                            dreg = 0;
+                            dbit = 0;
+                            bits_threshold = 15;
+                            zjd->dcv[0] = 0;
+                            zjd->dcv[1] = 0;
+                            zjd->dcv[2] = 0;
                         }
 
                         /* save context */
@@ -1026,6 +1057,7 @@ zjd_res_t zjd_scan_full(zjd_t *zjd)
 
                     component = &zjd->component[cmp];
                     memset(component->mcubuf, 0, 64 * sizeof(zjd_yuv_t));
+                    memset(tmp, 0, 64 * 4);
                 }
             }
         }
@@ -1035,14 +1067,7 @@ zjd_res_t zjd_scan_full(zjd_t *zjd)
 }
 
 /* TODO: sub function of zjd_scan, skip as much decode process as possible to speed up  */
-zjd_res_t zjd_scan_roi(zjd_t *zjd, const zjd_ctx_t *snapshot, const zjd_rect_t *tgt_rect)
-{
-    return ZJD_OK;
-}
-
-/* snapshot: used to control where to start, and where to resume
-   tgt_rect: target rectangle is used for  */
-zjd_res_t zjd_scan(zjd_t *zjd, const zjd_ctx_t *snapshot, const zjd_rect_t *tgt_rect)
+zjd_res_t zjd_scan_rect(zjd_t *zjd, const zjd_ctx_t *snapshot, const zjd_rect_t *tgt_rect)
 {
     int32_t dc = 0;
     uint8_t *dp;
@@ -1051,7 +1076,7 @@ zjd_res_t zjd_scan(zjd_t *zjd, const zjd_ctx_t *snapshot, const zjd_rect_t *tgt_
     int ebits, dcac = 0;
     uint8_t bits_threshold = 15;
     int n_cmp;
-    bool next_huff = true;
+    bool next_huff = true, rst = false;
     zjd_rect_t _mcu_rect, *mcu_rect = &_mcu_rect;
 
     zjd_comp_t *component = &zjd->component[cmp];
@@ -1078,7 +1103,15 @@ zjd_res_t zjd_scan(zjd_t *zjd, const zjd_ctx_t *snapshot, const zjd_rect_t *tgt_
         zjd->dcv[2] = snapshot->dcv[2];
         zjd->oft = snapshot->offset;
         zjd->pos = zjd->oft;
+    } else {
+        /* reset to the beginning of scan data */
+        zjd->oft = zjd->imgoft;
+        zjd->pos = zjd->oft;
+        zjd->dcv[0] = 0;
+        zjd->dcv[1] = 0;
+        zjd->dcv[2] = 0;
     }
+
     /* take snapshot */
     ctx->offset = zjd->oft;
     ctx->dreg = dreg;
@@ -1088,6 +1121,8 @@ zjd_res_t zjd_scan(zjd_t *zjd, const zjd_ctx_t *snapshot, const zjd_rect_t *tgt_
     ctx->dcv[0] = zjd->dcv[0];
     ctx->dcv[1] = zjd->dcv[1];
     ctx->dcv[2] = zjd->dcv[2];
+
+    ZJD_LOG("roi mode");
 
     while (1) {
         if (zjd->oft >= zjd->pos) {
@@ -1122,10 +1157,11 @@ zjd_res_t zjd_scan(zjd_t *zjd, const zjd_ctx_t *snapshot, const zjd_rect_t *tgt_
                 if (d == 0xD9) {
                     ZJD_LOG("EOI marker");
                     bits_threshold = 0;
+                } else if ((d >= 0xD0) && (d <= 0xD7)) {
+                    ZJD_LOG("RST marker %02X", d);
+                    bits_threshold = 0;
+                    rst = true;
                 } else {
-                    if ((d >= 0xD0) && (d <= 0xD7)) {
-                        ZJD_LOG("RST marker %02X", d);
-                    }
                     continue;
                 }
             }
@@ -1232,6 +1268,7 @@ zjd_res_t zjd_scan(zjd_t *zjd, const zjd_ctx_t *snapshot, const zjd_rect_t *tgt_
                                 zjd_mcu_scan(zjd, n_cmp, mcu_rect, tgt_rect);
 
                                 if (is_r0_beyond_r1(mcu_rect, tgt_rect)) {
+                                    ZJD_LOG("ROI MCUs processed\n");
                                     return ZJD_OK;
                                 }
                             }
@@ -1245,6 +1282,16 @@ zjd_res_t zjd_scan(zjd_t *zjd, const zjd_ctx_t *snapshot, const zjd_rect_t *tgt_
                                 ZJD_LOG("All MCUs processed (%u padding bits: %X)", dbit, dreg >> (32 - dbit));
                                 return ZJD_OK;
                             }
+                        }
+
+                        if (rst) {
+                            rst = false;
+                            dreg = 0;
+                            dbit = 0;
+                            bits_threshold = 15;
+                            zjd->dcv[0] = 0;
+                            zjd->dcv[1] = 0;
+                            zjd->dcv[2] = 0;
                         }
 
                         /* save context */
@@ -1271,6 +1318,17 @@ zjd_res_t zjd_scan(zjd_t *zjd, const zjd_ctx_t *snapshot, const zjd_rect_t *tgt_
     }
 
     return ZJD_OK;
+}
+
+/* snapshot: used to control where to start, and where to resume
+   tgt_rect: target rectangle is used for  */
+zjd_res_t zjd_scan(zjd_t *zjd, const zjd_ctx_t *snapshot, const zjd_rect_t *tgt_rect)
+{
+    if (snapshot == NULL && tgt_rect == NULL) {
+        return zjd_scan_full(zjd);
+    } else {
+        return zjd_scan_rect(zjd, snapshot, tgt_rect);
+    }
 }
 
 void zjd_save(const zjd_t *zjd, zjd_ctx_t *snapshot)

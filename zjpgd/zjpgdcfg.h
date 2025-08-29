@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2025 Jiapeng Li <mail@jiapeng.me>
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 #ifndef __ZJPGDCFG_H__
 #define __ZJPGDCFG_H__
 

@@ -1,10 +1,14 @@
 *.o
 *.exe
-images
+*.txt
+
 build-*
+
+output_zjpgd.bmp
+
 zjdcli
 zjdcli_debug
-*.txt
-output_zjpgd.bmp
 zjdtest
 zjdtest_debug
+
+images

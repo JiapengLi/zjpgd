@@ -1,3 +1,14 @@
+/*
+ * Copyright (c) 2025 Jiapeng Li <mail@jiapeng.me>
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+/*
+ * IDCT and other algorithms in this file are designed originally by ChaN
+ *
+ * Copyright (C) 2021, ChaN, all right reserved.
+ *
+ */
 #ifndef __ZJPGDALG_H__
 #define __ZJPGDALG_H__
 

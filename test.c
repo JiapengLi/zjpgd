@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2025 Jiapeng Li <mail@jiapeng.me>
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
@@ -174,7 +179,6 @@ int zjd_ofunc(zjd_t *zjd, zjd_rect_t *rect, void *pixels)
 
     return 1;
 }
-
 
 int zjd_test(zjd_t *zjd, void *work, size_t worksize, image_t *img)
 {

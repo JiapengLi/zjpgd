@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2025 Jiapeng Li <mail@jiapeng.me>
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 #include <stdio.h>
 
 #include "zjpgd.h"

@@ -44,11 +44,11 @@ static inline uint8_t ycbcr2b(int Y, int Cb, int Cr)
 static inline bool is_rect_intersect(const zjd_rect_t *r0, const zjd_rect_t *r1)
 {
     return !(
-        r0->x + r0->w <= r1->x ||   // r0 is completely to the left of r1
-        r1->x + r1->w <= r0->x ||   // r1 is completely to the left of r0
-        r0->y + r0->h <= r1->y ||   // r0 is completely above r1
-        r1->y + r1->h <= r0->y      // r1 is completely above r0
-    );
+               r0->x + r0->w <= r1->x ||   // r0 is completely to the left of r1
+               r1->x + r1->w <= r0->x ||   // r1 is completely to the left of r0
+               r0->y + r0->h <= r1->y ||   // r0 is completely above r1
+               r1->y + r1->h <= r0->y      // r1 is completely above r0
+           );
 }
 
 static inline bool is_r0_beyond_r1(const zjd_rect_t *r0, const zjd_rect_t *r1)
@@ -441,7 +441,7 @@ static zjd_res_t zjd_dqt_handler(zjd_t *zjd, zjd_tbl_t *tbl, const uint8_t *buf,
         /* Load the table */
         for (i = 0; i < 64; i++) {
             zi = ZIGZAG[i];                        /* Zigzag-order to raster-order conversion */
-            pb[zi] = (int32_t)((uint32_t)*buf++ * Ipsf[zi]); /* Apply scale factor of Arai algorithm to the de-quantizers */
+            pb[zi] = (int32_t)((uint32_t) * buf++ * Ipsf[zi]); /* Apply scale factor of Arai algorithm to the de-quantizers */
         }
 
 #if ZJD_DEBUG
@@ -566,7 +566,7 @@ static zjd_res_t zjd_sof0_handler(zjd_t *zjd, zjd_tbl_t *tbl, const uint8_t *buf
     }
 
     ZJD_LOG("SOF0 start of frame, w: %u, h: %u, ncomp: %u, msx: %u, msy: %u, qtid:",
-        zjd->width, zjd->height, zjd->ncomp, zjd->msx, zjd->msy);
+            zjd->width, zjd->height, zjd->ncomp, zjd->msx, zjd->msy);
     ZJD_HEXDUMP(tbl->qtid, zjd->ncomp);
 
     return ZJD_OK;
@@ -1066,7 +1066,7 @@ zjd_res_t zjd_scan_full(zjd_t *zjd)
                                 ctx->offset, ctx->dreg, ctx->dbit,
                                 ctx->mcu_x, ctx->mcu_y,
                                 ctx->dcv[0], ctx->dcv[1], ctx->dcv[2]
-                            );
+                               );
                     }
 
                     component = &zjd->component[cmp];
@@ -1194,7 +1194,7 @@ zjd_res_t zjd_scan_rect(zjd_t *zjd, const zjd_ctx_t *snapshot, const zjd_rect_t 
                 cls = !!cnt;
 
                 ZJD_LOG("(x: %d, y: %d), cmp %u, %s table, cls %d, cnt %d, dreg %08X, dbit %u",
-                       mcu_rect->x, mcu_rect->y, cmp, cls == 0 ? "DC" : "AC", cls, cnt, dreg, dbit);
+                        mcu_rect->x, mcu_rect->y, cmp, cls == 0 ? "DC" : "AC", cls, cnt, dreg, dbit);
 
                 bl0 = zjd_get_hc(&component->huff[cls], dreg, dbit, &val);
                 if (!bl0) {
@@ -1277,8 +1277,8 @@ zjd_res_t zjd_scan_rect(zjd_t *zjd, const zjd_ctx_t *snapshot, const zjd_rect_t 
                         } else {
                             if (is_rect_intersect(mcu_rect, tgt_rect)) {
                                 ZJD_LOG("MCU intersects with output rectangle (%u,%u,%u,%u) (%u,%u,%u,%u)\n",
-                                       mcu_rect->x, mcu_rect->y, mcu_rect->w, mcu_rect->h,
-                                       tgt_rect->x, tgt_rect->y, tgt_rect->w, tgt_rect->h);
+                                        mcu_rect->x, mcu_rect->y, mcu_rect->w, mcu_rect->h,
+                                        tgt_rect->x, tgt_rect->y, tgt_rect->w, tgt_rect->h);
                                 zjd_mcu_scan(zjd, n_cmp, mcu_rect, tgt_rect);
 
                                 if (is_r0_beyond_r1(mcu_rect, tgt_rect)) {
@@ -1321,7 +1321,7 @@ zjd_res_t zjd_scan_rect(zjd_t *zjd, const zjd_ctx_t *snapshot, const zjd_rect_t 
                                 ctx->offset, ctx->dreg, ctx->dbit,
                                 ctx->mcu_x, ctx->mcu_y,
                                 ctx->dcv[0], ctx->dcv[1], ctx->dcv[2]
-                            );
+                               );
                     }
 
                     component = &zjd->component[cmp];

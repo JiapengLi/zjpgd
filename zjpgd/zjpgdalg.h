@@ -91,7 +91,7 @@ static const uint8_t Clip8[1024] = {
 /*-----------------------------------------------------------------------*/
 /* src: Input block data (de-quantized and pre-scaled for Arai Algorithm) */
 /* dst: Pointer to the destination to store the block as byte array */
-static inline void block_idct(int32_t *src,zjd_yuv_t *dst)
+static inline void block_idct(int32_t *src, zjd_yuv_t *dst)
 {
     const int32_t M13 = (int32_t)(1.41421 * 4096), M2 = (int32_t)(1.08239 * 4096), M4 = (int32_t)(2.61313 * 4096), M5 = (int32_t)(1.84776 * 4096);
     int32_t v0, v1, v2, v3, v4, v5, v6, v7;

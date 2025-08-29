@@ -44,7 +44,7 @@ typedef enum {
     ZJD_ERR_FMT_HFMTBL1 = -13,
 
     ZJD_ERR_OOM_HFMTBL2 = -14,
-    ZJD_ERR_LEN_HFMTBL2= -15,
+    ZJD_ERR_LEN_HFMTBL2 = -15,
     ZJD_ERR_FMT_HFMTBL2 = -16,
 
     ZJD_ERR_OOM_HFMTBL3 = -17,

@@ -31,7 +31,8 @@ typedef struct {
     image_roi_t rois[3];
 } image_t;
 
-int load_jpeg(const char *filename, image_t *img) {
+int load_jpeg(const char *filename, image_t *img)
+{
     FILE *file = fopen(filename, "rb");
     if (!file) {
         perror("Failed to open file");
@@ -68,7 +69,8 @@ int load_jpeg(const char *filename, image_t *img) {
     return 0;
 }
 
-int save_bmp(const char *filename, image_t *img, int width, int height) {
+int save_bmp(const char *filename, image_t *img, int width, int height)
+{
     FILE *file = fopen(filename, "wb");
     if (!file) {
         perror("Failed to open file for writing");
@@ -185,16 +187,16 @@ int zjd_test(zjd_t *zjd, void *work, size_t worksize, image_t *img)
     zjd_res_t res;
 
     res = zjd_init(
-        zjd,
-        &(zjd_cfg_t){
-            .outfmt = ZJD_RGB888,
-            .ifunc = zjd_ifunc,
-            .ofunc = zjd_ofunc,
-            .buf = work,
-            .buflen = worksize,
-            .arg = (void *)img
-        }
-    );
+              zjd,
+    &(zjd_cfg_t) {
+        .outfmt = ZJD_RGB888,
+        .ifunc = zjd_ifunc,
+        .ofunc = zjd_ofunc,
+        .buf = work,
+        .buflen = worksize,
+        .arg = (void *)img
+    }
+          );
     if (res != ZJD_OK) {
         printf("Failed to initialize zjpgd %d\n", res);
         free(img->ifile.data);
@@ -212,7 +214,8 @@ int zjd_test(zjd_t *zjd, void *work, size_t worksize, image_t *img)
     return 0;
 }
 
-uint32_t micros() {
+uint32_t micros()
+{
     struct timespec ts;
     clock_gettime(CLOCK_REALTIME, &ts);  // or CLOCK_MONOTONIC for relative time
     return (uint32_t)((long long)ts.tv_sec * 1000000LL + ts.tv_nsec / 1000);
@@ -246,7 +249,9 @@ int main(int argc, char **argv)
 
     if (argc > 2) {
         rounds = atoi(argv[2]);
-        if (rounds < 1) rounds = 1;
+        if (rounds < 1) {
+            rounds = 1;
+        }
     } else {
         rounds = 1;
     }

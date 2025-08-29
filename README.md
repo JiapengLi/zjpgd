@@ -114,6 +114,8 @@ Region of Interest Recovery:
 ```
 
 ## TODO
+
+- [ ] DHT optimize, make hc right aligned
 - [ ] **Rectangle boundary clipping** - Ensure decoded regions stay within actual image bounds (maybe)
 - [ ] **Optimized rectangle intersection** - Faster MCU block filtering for target rectangles
 - [ ] More descriptive error codes

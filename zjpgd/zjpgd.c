@@ -832,7 +832,7 @@ zjd_res_t zjd_init(zjd_t *zjd, const zjd_cfg_t *cfg)
 zjd_res_t zjd_scan_full(zjd_t *zjd)
 {
     int32_t dc = 0;
-    uint8_t *dp;
+    uint8_t *dp = zjd->buf;
     uint8_t last_d = 0, d = 0, dbit = 0, cnt = 0, cmp = 0, cls = 0, bl0, bl1, val, zeros, i;
     uint32_t dreg = 0;
     int ebits, dcac = 0;
@@ -1084,7 +1084,7 @@ zjd_res_t zjd_scan_full(zjd_t *zjd)
 zjd_res_t zjd_scan_rect(zjd_t *zjd, const zjd_ctx_t *snapshot, const zjd_rect_t *tgt_rect)
 {
     int32_t dc = 0;
-    uint8_t *dp;
+    uint8_t *dp = zjd->buf;
     uint8_t last_d = 0, d = 0, dbit = 0, cnt = 0, cmp = 0, cls = 0, bl0, bl1, val, zeros;
     uint32_t dreg = 0;
     int ebits, dcac = 0;

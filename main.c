@@ -6,7 +6,6 @@
 #include <stdio.h>
 
 #include "zjpgd.h"
-#include "zjpgdalg.h"
 
 static zjd_outfmt_t outfmt = ZJD_RGB888;
 static zjd_ctx_t snapshot[16];
@@ -205,9 +204,11 @@ int main(int argc, char **argv)
 
     printf("\n\n\n");
 
+    printf("pool: %zd\n", sizeof(work));
     printf("sizeof(zjd_t): %zu\n", sizeof(zjd_t));
-    printf("Memory Pool: %zd\n", sizeof(work) - zjd.buflen);
-    printf("%s Total: %zd\n", argv[1], sizeof(zjd_t) + sizeof(work) - zjd.buflen);
+    printf("allocated: %zd\n", sizeof(work) - zjd.buflen);
+    printf("cache: %zd\n", zjd.buflen);
+    printf("%s minimum cost (with 4 bytes cache): %zd\n", argv[1], sizeof(zjd_t) + sizeof(work) - zjd.buflen + 4);
 
     return 0;
 }

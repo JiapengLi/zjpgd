@@ -2,6 +2,7 @@
 *.exe
 *.txt
 
+.vscode
 build-*
 
 output_zjpgd.bmp

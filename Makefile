@@ -1,52 +1,20 @@
 CC = gcc
-CFLAGS = -Wall -O2 -Wno-format-zero-length -MMD -MP
-LIBZJD = ./zjpgd
+CFLAGS = -Wall -O2 -Wno-format-zero-length
 
-BUILD_DEBUG = build-debug
-BUILD_RELEASE = build-release
+all: zjdcli_debug zjdcli zjdtest_debug zjdtest
 
-SRCS = main.c $(LIBZJD)/zjpgd.c
+zjdcli_debug:
+	$(CC) -DZJD_DEBUG=1 -I zjpgd main.c  zjpgd/zjpgd.c -o zjdcli_debug
 
-OBJS_DEBUG = $(addprefix $(BUILD_DEBUG)/,$(notdir $(SRCS:.c=.o)))
-OBJS_RELEASE = $(addprefix $(BUILD_RELEASE)/,$(notdir $(SRCS:.c=.o)))
-DEPS_DEBUG = $(OBJS_DEBUG:.o=.d)
-DEPS_RELEASE = $(OBJS_RELEASE:.o=.d)
+zjdcli:
+	$(CC) -DZJD_DEBUG=0 -I zjpgd main.c  zjpgd/zjpgd.c -o zjdcli
 
-all: zjdcli_debug zjdcli
+zjdtest_debug:
+	$(CC) -DZJD_DEBUG=1 -I zjpgd test.c  zjpgd/zjpgd.c -o zjdtest_debug
 
-# -----------------------------
-# Debug
-# -----------------------------
-zjdcli_debug: CFLAGS += -DZJD_DEBUG=1
-zjdcli_debug: $(OBJS_DEBUG)
-	@mkdir -p $(BUILD_DEBUG)
-	$(CC) $(CFLAGS) -o $@ $(OBJS_DEBUG)
-
-$(BUILD_DEBUG)/%.o: $(LIBZJD)/%.c
-	@mkdir -p $(BUILD_DEBUG)
-	$(CC) $(CFLAGS) -DZJD_DEBUG=1 -I $(LIBZJD) -c $< -o $@
-
-$(BUILD_DEBUG)/main.o: main.c
-	@mkdir -p $(BUILD_DEBUG)
-	$(CC) $(CFLAGS) -DZJD_DEBUG=1 -I $(LIBZJD) -c $< -o $@
-
-# -----------------------------
-# Release
-# -----------------------------
-zjdcli: CFLAGS += -DZJD_DEBUG=0
-zjdcli: $(OBJS_RELEASE)
-	@mkdir -p $(BUILD_RELEASE)
-	$(CC) $(CFLAGS) -o $@ $(OBJS_RELEASE)
-
-$(BUILD_RELEASE)/%.o: $(LIBZJD)/%.c
-	@mkdir -p $(BUILD_RELEASE)
-	$(CC) $(CFLAGS) -DZJD_DEBUG=0 -I $(LIBZJD) -c $< -o $@
-
-$(BUILD_RELEASE)/main.o: main.c
-	@mkdir -p $(BUILD_RELEASE)
-	$(CC) $(CFLAGS) -DZJD_DEBUG=0 -I $(LIBZJD) -c $< -o $@
+zjdtest:
+	$(CC) -DZJD_DEBUG=0 -I zjpgd test.c  zjpgd/zjpgd.c -o zjdtest
 
 clean:
-	rm -rf $(BUILD_DEBUG) $(BUILD_RELEASE)
+	rm -f zjdcli* zjdtest*
 
--include $(DEPS_DEBUG) $(DEPS_RELEASE)

@@ -10,6 +10,10 @@
 #include "zjpgdusr.h"
 #endif
 
+#ifndef ZJD_HUFFMAN_OPT
+#   define ZJD_HUFFMAN_OPT              1
+#endif
+
 #ifndef ZJD_DEBUG
 #   define ZJD_DEBUG                    0
 #endif

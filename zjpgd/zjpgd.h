@@ -81,19 +81,37 @@ typedef struct {
     uint16_t h;
 } zjd_rect_t;
 
+#if ZJD_HUFFMAN_OPT == 1
 typedef struct {
-    uint8_t *huffbits[2][2];    /* Huffman bit distribution tables [id][dcac] */
-    uint16_t *huffcode[2][2];   /* Huffman code word tables [id][dcac] */
-    uint8_t *huffdata[2][2];    /* Huffman decoded data tables [id][dcac] */
-    int32_t *qttbl[4];          /* Dequantizer tables [id] */
-    uint8_t qtid[3];            /* Quantization table ID of each component, Y, Cb, Cr */
-} zjd_tbl_t;
+    uint8_t bits;
+    uint8_t data;
+    uint16_t code;
+} zjd_huff_tbl_t;
 
+typedef struct {
+    uint8_t tbl_len;
+    zjd_huff_tbl_t *huff;
+} zjd_huff_t;
+#else
 typedef struct {
     uint8_t *bits;
     uint16_t *code;
     uint8_t *data;
 } zjd_huff_t;
+#endif
+
+typedef struct {
+#if ZJD_HUFFMAN_OPT == 1
+    uint8_t huff_tbl_len[2][2];
+    zjd_huff_tbl_t *huff_tbl[2][2];
+#else
+    uint8_t *huffbits[2][2];    /* Huffman bit distribution tables [id][dcac] */
+    uint16_t *huffcode[2][2];   /* Huffman code word tables [id][dcac] */
+    uint8_t *huffdata[2][2];    /* Huffman decoded data tables [id][dcac] */
+#endif
+    int32_t *qttbl[4];          /* Dequantizer tables [id] */
+    uint8_t qtid[3];            /* Quantization table ID of each component, Y, Cb, Cr */
+} zjd_tbl_t;
 
 typedef int16_t zjd_yuv_t;
 

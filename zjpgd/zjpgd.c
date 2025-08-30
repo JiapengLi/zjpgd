@@ -835,7 +835,7 @@ zjd_res_t zjd_scan_full(zjd_t *zjd)
     uint8_t *dp = zjd->buf;
     uint8_t last_d = 0, d = 0, dbit = 0, cnt = 0, cmp = 0, cls = 0, bl0, bl1, val, zeros, i;
     uint32_t dreg = 0;
-    int ebits, dcac = 0;
+    int dcac = 0;
     uint8_t bits_threshold = 15;
     int n_cmp;
     bool next_huff = true, skip_idct = false, rst = false;
@@ -968,31 +968,28 @@ zjd_res_t zjd_scan_full(zjd_t *zjd)
 
                     cnt += zeros;
                     if (bl1) {
-                        ebits = (int)(dreg >> (32 - bl1));
+                        dcac = (int)(dreg >> (32 - bl1));
                         if (!(dreg & 0x80000000)) {
-                            ebits -= (1 << bl1) - 1;    /* Restore negative value if needed */
+                            dcac -= (1 << bl1) - 1;    /* Restore negative value if needed */
                         }
-                    } else {
-                        ebits = 0;
-                    }
-                    if ((cnt == 0) || bl1) {
-                        if (cnt == 0) {
-                            /* DC component */
-                            dcac = *component->dcv + ebits;
-                            *component->dcv = dcac;
-                        } else {
-                            /* AC component */
-                            dcac = ebits;
-                        }
-
-                        /* reverse zigzag */
-                        // component->mcubuf[ZIGZAG[cnt]] = dcac;
-
-                        i = ZIGZAG[cnt];
-                        tmp[i] = dcac * component->qttbl[i] >> 8;
-
                         dbit -= bl1;
                         dreg <<= bl1;
+                    } else {
+                        dcac = 0;
+                    }
+
+                    if (cnt == 0) {
+                        /* DC component */
+                        dcac += *component->dcv;
+                        *component->dcv = dcac;
+                    } else {
+                        /* AC component */
+                        //dcac = dcac;
+                    }
+
+                    if (dcac) {
+                        i = ZIGZAG[cnt];
+                        tmp[i] = dcac * component->qttbl[i] >> 8;
                     }
                     cnt += 1;
                 } else {
@@ -1003,7 +1000,7 @@ zjd_res_t zjd_scan_full(zjd_t *zjd)
                     }
                     zeros = 0;
                     cnt = 64;
-                    ebits = 0;
+                    dcac = 0;
                 }
 
                 // ZJD_LOG("Found Huffman code: %08X %u | %u %02X %d %d %d", dreg, dbit, bl0, val, *component->dcv, ebits, dcac);

@@ -227,7 +227,11 @@ int main(int argc, char **argv)
     int ret, i, j, rounds;
     uint32_t us;
 
-    uint8_t work[3072];
+#if ZJD_HUFFMAN_OPT == 2
+    uint8_t work[1024 * 5]; // Work buffer
+#else
+    uint8_t work[1024 * 3]; // Work buffer
+#endif
 
     zjd_t zjd;
     zjd_res_t zjd_res;

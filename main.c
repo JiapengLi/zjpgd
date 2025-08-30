@@ -120,7 +120,11 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    uint8_t work[3072]; // Work buffer
+#if ZJD_HUFFMAN_OPT == 2
+    uint8_t work[1024 * 5]; // Work buffer
+#else
+    uint8_t work[1024 * 3]; // Work buffer
+#endif
 
     if (argc > 3) {
         int x, y, w, h;

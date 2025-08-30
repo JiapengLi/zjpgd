@@ -60,32 +60,7 @@ static inline bool is_r0_beyond_r1(const zjd_rect_t *r0, const zjd_rect_t *r1)
 /*-------------------------------------------------------------------------*/
 // Log
 #if ZJD_DEBUG
-#if ZJD_HUFFMAN_OPT == 1
-const char *zjd_code2bin_left(char *buf, uint16_t code, int bits)
-{
-    int i;
-
-    for (i = 0; i < bits; i++) {
-        buf[i] = (code & 0x8000) ? '1' : '0';
-        code <<= 1;
-    }
-    buf[i] = '\0';
-
-    return buf;
-}
-void zjd_log_huffman_table(int num, int cls, zjd_huff_tbl_t *huff, uint8_t tbl_len)
-{
-    int i;
-    char buf[32];
-
-    ZJD_LOG("\nTable Number: %d, Class: %s, Huffman Table [%d][%d]:", num, cls ? "AC" : "DC", num, cls);
-    ZJD_LOG("index, bits, code(hex), code(bin), data");
-    for (i = 0; i < tbl_len; i++) {
-        ZJD_LOG("%3d, %2d, %04X, %17s, %02X", i, huff->bits + 1, huff->code, zjd_code2bin_left(buf, huff->code, huff->bits + 1), huff->data);
-        huff++;
-    }
-}
-#else
+#if ZJD_HUFFMAN_OPT == 0
 const char *zjd_code2bin_right(char *buf, int code, int bits)
 {
     int i;
@@ -116,7 +91,47 @@ void zjd_log_huffman_table(int num, int cls, uint8_t *hb, uint16_t *hc, uint8_t 
         }
     }
 }
+#elif ZJD_HUFFMAN_OPT == 1
+const char *zjd_code2bin_left(char *buf, uint16_t code, int bits)
+{
+    int i;
+
+    for (i = 0; i < bits; i++) {
+        buf[i] = (code & 0x8000) ? '1' : '0';
+        code <<= 1;
+    }
+    buf[i] = '\0';
+
+    return buf;
+}
+void zjd_log_huffman_table(int num, int cls, zjd_huff_tbl_t *huff, uint8_t tbl_len)
+{
+    int i;
+    char buf[32];
+
+    ZJD_LOG("\nTable Number: %d, Class: %s, Huffman Table [%d][%d]:", num, cls ? "AC" : "DC", num, cls);
+    ZJD_LOG("index, bits, code(hex), code(bin), data");
+    for (i = 0; i < tbl_len; i++) {
+        ZJD_LOG("%3d, %2d, %04X, %17s, %02X", i, huff->bits + 1, huff->code, zjd_code2bin_left(buf, huff->code, huff->bits + 1), huff->data);
+        huff++;
+    }
+}
+#elif ZJD_HUFFMAN_OPT == 2
+void zjd_log_huffman_table(int num, int cls, zjd_huff_node_t *node, uint16_t node_len)
+{
+    int i;
+
+    ZJD_LOG("\nTable Number: %d, Class: %s, Huffman Table [%d][%d]:", num, cls ? "AC" : "DC", num, cls);
+
+    ZJD_LOG("index, left, right, depth");
+    for (i = 0; i < node_len; i++) {
+        ZJD_LOG("%5d, %5d, %5d", i, node[i].l, node[i].r);
+    }
+    ZJD_LOG("\n");
+
+}
 #endif
+
 void zjd_log_qt_table(int i, int32_t *p)
 {
     ZJD_LOG("\nQuantization Table ID: %d", i);
@@ -135,33 +150,7 @@ void zjd_log(zjd_t *zjd)
 
 /*-------------------------------------------------------------------------*/
 // Decompress Helpers
-#if ZJD_HUFFMAN_OPT == 1
-const uint16_t zjd_mask_table[16] = {
-    0x8000, 0xC000, 0xE000, 0xF000,
-    0xF800, 0xFC00, 0xFE00, 0xFF00,
-    0xFF80, 0xFFC0, 0xFFE0, 0xFFF0,
-    0xFFF8, 0xFFFC, 0xFFFE, 0xFFFF,
-};
-
-static inline int zjd_get_hc(zjd_huff_t *huff, uint32_t dreg, uint8_t dbit, uint8_t *val)
-{
-    uint16_t dreg16 = (uint16_t)(dreg >> 16);
-    zjd_huff_tbl_t *huff_tbl = huff->huff;
-    int tbl_len = huff->tbl_len;
-
-    while (tbl_len--) {
-        if ((dreg16 & zjd_mask_table[huff_tbl->bits]) == huff_tbl->code) {
-            if (huff_tbl->bits >= dbit) {
-                return 0;
-            }
-            *val = huff_tbl->data;
-            return huff_tbl->bits + 1;
-        }
-        huff_tbl++;
-    }
-    return 0;
-}
-#else
+#if ZJD_HUFFMAN_OPT == 0
 static inline int zjd_get_hc(zjd_huff_t *huff, uint32_t dreg, uint8_t dbit, uint8_t *val)
 {
     uint8_t i, n_codes;
@@ -188,6 +177,55 @@ static inline int zjd_get_hc(zjd_huff_t *huff, uint32_t dreg, uint8_t dbit, uint
         }
     }
 
+    return 0;
+}
+#elif ZJD_HUFFMAN_OPT == 1
+const uint16_t zjd_mask_table[16] = {
+    0x8000, 0xC000, 0xE000, 0xF000,
+    0xF800, 0xFC00, 0xFE00, 0xFF00,
+    0xFF80, 0xFFC0, 0xFFE0, 0xFFF0,
+    0xFFF8, 0xFFFC, 0xFFFE, 0xFFFF,
+};
+
+static inline int zjd_get_hc(zjd_huff_t *huff, uint32_t dreg, uint8_t dbit, uint8_t *val)
+{
+    uint16_t dreg16 = (uint16_t)(dreg >> 16);
+    zjd_huff_tbl_t *huff_tbl = huff->huff;
+    int tbl_len = huff->tbl_len;
+
+    while (tbl_len--) {
+        if ((dreg16 & zjd_mask_table[huff_tbl->bits]) == huff_tbl->code) {
+            if (huff_tbl->bits >= dbit) {
+                return 0;
+            }
+            *val = huff_tbl->data;
+            return huff_tbl->bits + 1;
+        }
+        huff_tbl++;
+    }
+    return 0;
+}
+#elif ZJD_HUFFMAN_OPT == 2
+static inline int zjd_get_hc(zjd_huff_t *huff, uint32_t dreg, uint8_t dbit, uint8_t *val)
+{
+    int i;
+    int16_t rl = 0, next_rl;
+    zjd_huff_node_t *nodes = huff->node;
+    uint16_t dreg16 = (uint16_t)(dreg >> 16);
+
+    for (i = 0; i < 17; i++) {
+        ZJD_LOG("dreg16: %04X, bit: %d, rl: %d", dreg16, !!(dreg16 & 0x8000), rl);
+        next_rl = (dreg16 & 0x8000) ? nodes[rl].r : nodes[rl].l;
+        if (next_rl <= 0) {
+            *val = (uint8_t)(-nodes[rl].l);
+            if (i > dbit) {
+                return 0;
+            }
+            return i;
+        }
+        rl = next_rl;
+        dreg16 <<= 1;
+    }
     return 0;
 }
 #endif
@@ -505,76 +543,7 @@ static zjd_res_t zjd_dqt_handler(zjd_t *zjd, zjd_tbl_t *tbl, const uint8_t *buf,
     return ZJD_OK;
 }
 
-#if ZJD_HUFFMAN_OPT == 1
-/* Create huffman code tables with a DHT segment                         */
-static zjd_res_t zjd_dht_handler(zjd_t *zjd, zjd_tbl_t *tbl, const uint8_t *buf, int32_t len)
-{
-    unsigned int i, b, cls, num;
-    int32_t np;
-    uint8_t d;
-    const uint8_t *pb;
-    uint16_t code, hc;
-
-
-    zjd_huff_tbl_t *huff_tbl;
-    int tbl_len;
-
-    /* header(1) | bits counter map (16) |  */
-    while (len) {
-        if (len < 17) {
-            return ZJD_ERR_LEN_HFMTBL1;    /* Err: wrong buf size */
-        }
-        len -= 17;
-
-        /* Get table number and class: only 0x00 0x01 0x10 0x11 are valid */
-        d = *buf++;
-        if (d & 0xEE) {
-            return ZJD_ERR_FMT_HFMTBL1;
-        }
-        cls = d >> 4;
-        num = d & 0x0F;
-
-        /* symbol number of the table */
-        pb = buf;
-        for (np = i = 0; i < 16; i++) {
-            np += *buf++;
-        }
-
-        if (len < np) {
-            return ZJD_ERR_LEN_HFMTBL2;
-        }
-        len -= np;
-
-        tbl_len = np;
-        huff_tbl = zjd_malloc(zjd, sizeof(zjd_huff_tbl_t) * np);
-        if (!huff_tbl) {
-            return ZJD_ERR_OOM_HFMTBL2;
-        }
-        tbl->huff_tbl[num][cls] = huff_tbl;
-        tbl->huff_tbl_len[num][cls] = tbl_len;
-
-        hc = 0;
-        for (i = 0; i < 16; i++) {
-            b = pb[i];
-            while (b--) {
-                code = hc++;
-                huff_tbl->bits = i;
-                huff_tbl->code = code << (16 - (i + 1));
-                huff_tbl->data = *buf++;
-                huff_tbl++;
-            }
-            hc <<= 1;
-        }
-
-#if ZJD_DEBUG
-        zjd_log_huffman_table(num, cls, tbl->huff_tbl[num][cls], tbl->huff_tbl_len[num][cls]);
-#endif
-
-    }
-
-    return ZJD_OK;
-}
-#else
+#if ZJD_HUFFMAN_OPT == 0
 /* Create huffman code tables with a DHT segment                         */
 static zjd_res_t zjd_dht_handler(zjd_t *zjd, zjd_tbl_t *tbl, const uint8_t *buf, int32_t len)
 {
@@ -654,6 +623,203 @@ static zjd_res_t zjd_dht_handler(zjd_t *zjd, zjd_tbl_t *tbl, const uint8_t *buf,
 
     return ZJD_OK;
 }
+#elif ZJD_HUFFMAN_OPT == 1
+/* Create huffman code tables with a DHT segment                         */
+static zjd_res_t zjd_dht_handler(zjd_t *zjd, zjd_tbl_t *tbl, const uint8_t *buf, int32_t len)
+{
+    unsigned int i, b, cls, num;
+    int32_t np;
+    uint8_t d;
+    const uint8_t *pb;
+    uint16_t code, hc;
+
+
+    zjd_huff_tbl_t *huff_tbl;
+    int tbl_len;
+
+    /* header(1) | bits counter map (16) |  */
+    while (len) {
+        if (len < 17) {
+            return ZJD_ERR_LEN_HFMTBL1;    /* Err: wrong buf size */
+        }
+        len -= 17;
+
+        /* Get table number and class: only 0x00 0x01 0x10 0x11 are valid */
+        d = *buf++;
+        if (d & 0xEE) {
+            return ZJD_ERR_FMT_HFMTBL1;
+        }
+        cls = d >> 4;
+        num = d & 0x0F;
+
+        /* symbol number of the table */
+        pb = buf;
+        for (np = i = 0; i < 16; i++) {
+            np += *buf++;
+        }
+
+        ZJD_LOG("Canonical Huffman Code: (bits)");
+        ZJD_HEXDUMP(pb, 16);
+
+        if (len < np) {
+            return ZJD_ERR_LEN_HFMTBL2;
+        }
+        len -= np;
+
+        tbl_len = np;
+        huff_tbl = zjd_malloc(zjd, sizeof(zjd_huff_tbl_t) * np);
+        if (!huff_tbl) {
+            return ZJD_ERR_OOM_HFMTBL2;
+        }
+        tbl->huff_tbl[num][cls] = huff_tbl;
+        tbl->huff_tbl_len[num][cls] = tbl_len;
+
+        hc = 0;
+        for (i = 0; i < 16; i++) {
+            b = pb[i];
+            while (b--) {
+                code = hc++;
+                huff_tbl->bits = i;
+                huff_tbl->code = code << (16 - (i + 1));
+                huff_tbl->data = *buf++;
+                huff_tbl++;
+            }
+            hc <<= 1;
+        }
+
+#if ZJD_DEBUG
+        zjd_log_huffman_table(num, cls, tbl->huff_tbl[num][cls], tbl->huff_tbl_len[num][cls]);
+#endif
+
+    }
+
+    return ZJD_OK;
+}
+#elif ZJD_HUFFMAN_OPT == 2
+static void zjd_hc_check(zjd_huff_node_t *nodes, int nodes_len, uint8_t *pb, uint8_t *pd)
+{
+    int i, hc;
+    uint8_t b;
+    hc = 0;
+    for ( i = 0; i < 16; i++) {
+        b = pb[i];
+        while (b--) {
+            ZJD_LOG("bits %d, hc: %04X", i+1, hc++);
+        }
+        hc <<= 1;
+    }
+}
+
+static int zjd_hc_create(zjd_huff_node_t *nodes, int nodes_len, uint8_t *pb, uint8_t *pd)
+{
+    int i, j, steps, index;
+    uint8_t b, data;
+    uint16_t code, hc, rl;
+    int16_t d;
+
+    memset(nodes, 0, sizeof(zjd_huff_node_t) * nodes_len);
+
+    zjd_hc_check(nodes, nodes_len, pb, pd);
+
+    d = -1;
+    hc = 0;
+    index = 1;
+    for (i = 0; i < 16; i++) {
+        b = pb[i];
+        steps = i + 1;
+        while (b--) {
+            code = hc << (16 - (i + 1));
+            data = *pd++;
+            ZJD_LOG("i %d, hc %04X, b %u, code: %04X, steps: %d, data: %02X", i + 1, hc, pb[i], code, steps, data);
+            hc++;
+            rl = 0;
+            for (j = 0; j < steps; j++) {
+                if (rl >= nodes_len) {
+                    ZJD_LOG("Error: Huffman tree node overflow rl %u, %u", rl, nodes_len);
+                    return -1;
+                }
+                int16_t *next = (code & 0x8000) ? &nodes[rl].r : &nodes[rl].l;
+                if (*next == 0) {
+                    *next = index++;
+                }
+                rl = *next;
+                code <<= 1;
+            }
+
+            nodes[rl].l = 0 - (uint16_t)data;
+            nodes[rl].r = d;
+            d--;
+        }
+        hc <<= 1;
+    }
+    return index;
+}
+
+/* Create huffman code tables with a DHT segment                         */
+static zjd_res_t zjd_dht_handler(zjd_t *zjd, zjd_tbl_t *tbl, const uint8_t *buf, int32_t len)
+{
+    unsigned int i, b, cls, num;
+    int32_t np;
+    uint8_t d;
+    const uint8_t *pb, *pd;
+    uint16_t code, hc;
+
+    zjd_huff_node_t *huff_node;
+    int node_len;
+
+    /* header(1) | bits counter map (16) |  */
+    while (len) {
+        if (len < 17) {
+            return ZJD_ERR_LEN_HFMTBL1;    /* Err: wrong buf size */
+        }
+        len -= 17;
+
+        /* Get table number and class: only 0x00 0x01 0x10 0x11 are valid */
+        d = *buf++;
+        if (d & 0xEE) {
+            return ZJD_ERR_FMT_HFMTBL1;
+        }
+        cls = d >> 4;
+        num = d & 0x0F;
+
+        /* symbol number of the table */
+        pb = buf;
+        pd = buf + 16;
+        for (np = i = 0; i < 16; i++) {
+            np += *buf++;
+        }
+        buf += np;
+
+        ZJD_LOG("Canonical Huffman Code: (bits) ");
+        ZJD_HEXDUMP(pb, 16);
+
+        ZJD_LOG("Canonical Huffman Code: (data %u) ", np);
+        ZJD_HEXDUMP(pd, np);
+        if (len < np) {
+            return ZJD_ERR_LEN_HFMTBL2;
+        }
+        len -= np;
+
+        node_len = np * 2;
+        huff_node = zjd_malloc(zjd, sizeof(zjd_huff_node_t) * node_len);
+        if (!huff_node) {
+            return ZJD_ERR_OOM_HFMTBL2;
+        }
+        tbl->huff_node[num][cls] = huff_node;
+
+        int n_nodes = zjd_hc_create(huff_node, node_len, (uint8_t *)pb, (uint8_t *)pd);
+        if (n_nodes != node_len) {
+            return ZJD_ERR_FMT_HFMTBL3;
+        }
+
+#if ZJD_DEBUG
+        zjd_log_huffman_table(num, cls, huff_node, node_len);
+#endif
+
+    }
+
+    return ZJD_OK;
+}
 #endif
 
 static zjd_res_t zjd_sof0_handler(zjd_t *zjd, zjd_tbl_t *tbl, const uint8_t *buf, int32_t len)
@@ -717,13 +883,6 @@ static zjd_res_t zjd_sos_handler(zjd_t *zjd, zjd_tbl_t *tbl, const uint8_t *buf,
             return ZJD_ERR_FMT3;    /* Err: Different table number for DC/AC element */
         }
         n = i ? 1 : 0;                          /* Component class */
-#if ZJD_HUFFMAN_OPT == 1
-
-#else
-        if (!tbl->huffbits[n][0] || !tbl->huffbits[n][1]) {   /* Check huffman table for this component */
-            return ZJD_ERR_FMT1;                    /* Err: Not loaded */
-        }
-#endif
         if (!tbl->qttbl[tbl->qtid[i]]) {          /* Check dequantizer table for this component */
             return ZJD_ERR_FMT1;                    /* Err: Not loaded */
         }
@@ -752,18 +911,21 @@ static zjd_res_t zjd_sos_handler(zjd_t *zjd, zjd_tbl_t *tbl, const uint8_t *buf,
 
     /* Y */
     for (i = 0; i < n; i++) {
-#if ZJD_HUFFMAN_OPT == 1
-        zjd->component[i].huff[0].huff = tbl->huff_tbl[0][0];
-        zjd->component[i].huff[0].tbl_len = tbl->huff_tbl_len[0][0];
-        zjd->component[i].huff[1].huff = tbl->huff_tbl[0][1];
-        zjd->component[i].huff[1].tbl_len = tbl->huff_tbl_len[0][1];
-#else
+#if ZJD_HUFFMAN_OPT == 0
         zjd->component[i].huff[0].bits = tbl->huffbits[0][0];
         zjd->component[i].huff[0].code = tbl->huffcode[0][0];
         zjd->component[i].huff[0].data = tbl->huffdata[0][0];
         zjd->component[i].huff[1].bits = tbl->huffbits[0][1];
         zjd->component[i].huff[1].code = tbl->huffcode[0][1];
         zjd->component[i].huff[1].data = tbl->huffdata[0][1];
+#elif ZJD_HUFFMAN_OPT == 1
+        zjd->component[i].huff[0].huff = tbl->huff_tbl[0][0];
+        zjd->component[i].huff[0].tbl_len = tbl->huff_tbl_len[0][0];
+        zjd->component[i].huff[1].huff = tbl->huff_tbl[0][1];
+        zjd->component[i].huff[1].tbl_len = tbl->huff_tbl_len[0][1];
+#elif ZJD_HUFFMAN_OPT == 2
+        zjd->component[i].huff[0].node = tbl->huff_node[0][0];
+        zjd->component[i].huff[1].node = tbl->huff_node[0][1];
 #endif
         zjd->component[i].qttbl = tbl->qttbl[tbl->qtid[0]];
         zjd->component[i].dcv = &zjd->dcv[0];
@@ -774,18 +936,21 @@ static zjd_res_t zjd_sos_handler(zjd_t *zjd, zjd_tbl_t *tbl, const uint8_t *buf,
     /* CrCb */
     if (zjd->ncomp == 3) {
         for (i = 0; i < 2; i++) {
-#if ZJD_HUFFMAN_OPT == 1
-            zjd->component[n + i].huff[0].huff = tbl->huff_tbl[1][0];
-            zjd->component[n + i].huff[0].tbl_len = tbl->huff_tbl_len[1][0];
-            zjd->component[n + i].huff[1].huff = tbl->huff_tbl[1][1];
-            zjd->component[n + i].huff[1].tbl_len = tbl->huff_tbl_len[1][1];
-#else
+#if ZJD_HUFFMAN_OPT == 0
             zjd->component[n + i].huff[0].bits = tbl->huffbits[1][0];
             zjd->component[n + i].huff[0].code = tbl->huffcode[1][0];
             zjd->component[n + i].huff[0].data = tbl->huffdata[1][0];
             zjd->component[n + i].huff[1].bits = tbl->huffbits[1][1];
             zjd->component[n + i].huff[1].code = tbl->huffcode[1][1];
             zjd->component[n + i].huff[1].data = tbl->huffdata[1][1];
+#elif ZJD_HUFFMAN_OPT == 1
+            zjd->component[n + i].huff[0].huff = tbl->huff_tbl[1][0];
+            zjd->component[n + i].huff[0].tbl_len = tbl->huff_tbl_len[1][0];
+            zjd->component[n + i].huff[1].huff = tbl->huff_tbl[1][1];
+            zjd->component[n + i].huff[1].tbl_len = tbl->huff_tbl_len[1][1];
+#elif ZJD_HUFFMAN_OPT == 2
+            zjd->component[n + i].huff[0].node = tbl->huff_node[1][0];
+            zjd->component[n + i].huff[1].node = tbl->huff_node[1][1];
 #endif
             zjd->component[n + i].qttbl = tbl->qttbl[tbl->qtid[i + 1]];
             zjd->component[n + i].dcv = &zjd->dcv[i + 1];

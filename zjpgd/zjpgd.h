@@ -92,6 +92,15 @@ typedef struct {
     uint8_t tbl_len;
     zjd_huff_tbl_t *huff;
 } zjd_huff_t;
+#elif ZJD_HUFFMAN_OPT == 2
+typedef struct {
+    int16_t l;
+    int16_t r;
+} zjd_huff_node_t;
+
+typedef struct {
+    zjd_huff_node_t *node;
+} zjd_huff_t;
 #else
 typedef struct {
     uint8_t *bits;
@@ -104,6 +113,8 @@ typedef struct {
 #if ZJD_HUFFMAN_OPT == 1
     uint8_t huff_tbl_len[2][2];
     zjd_huff_tbl_t *huff_tbl[2][2];
+#elif ZJD_HUFFMAN_OPT == 2
+    zjd_huff_node_t *huff_node[2][2];
 #else
     uint8_t *huffbits[2][2];    /* Huffman bit distribution tables [id][dcac] */
     uint16_t *huffcode[2][2];   /* Huffman code word tables [id][dcac] */

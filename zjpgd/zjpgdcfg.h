@@ -11,7 +11,7 @@
 #endif
 
 #ifndef ZJD_HUFFMAN_OPT
-#   define ZJD_HUFFMAN_OPT              1
+#   define ZJD_HUFFMAN_OPT              2
 #endif
 
 #ifndef ZJD_DEBUG

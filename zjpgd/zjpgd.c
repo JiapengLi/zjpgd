@@ -209,21 +209,20 @@ static inline int zjd_get_hc(zjd_huff_t *huff, uint32_t dreg, uint8_t dbit, uint
 static inline int zjd_get_hc(zjd_huff_t *huff, uint32_t dreg, uint8_t dbit, uint8_t *val)
 {
     int i;
-    int16_t rl = 0, next_rl;
+    int16_t rl = 0;
     zjd_huff_node_t *nodes = huff->node;
     uint16_t dreg16 = (uint16_t)(dreg >> 16);
 
     for (i = 0; i < 17; i++) {
         ZJD_LOG("dreg16: %04X, bit: %d, rl: %d", dreg16, !!(dreg16 & 0x8000), rl);
-        next_rl = (dreg16 & 0x8000) ? nodes[rl].r : nodes[rl].l;
-        if (next_rl <= 0) {
-            *val = (uint8_t)(-nodes[rl].l);
+        rl = (dreg16 & 0x8000) ? nodes[rl].r : nodes[rl].l;
+        if (rl <= 0) {
+            *val = (uint8_t)(-rl);
             if (i > dbit) {
                 return 0;
             }
             return i;
         }
-        rl = next_rl;
         dreg16 <<= 1;
     }
     return 0;
@@ -715,13 +714,11 @@ static int zjd_hc_create(zjd_huff_node_t *nodes, int nodes_len, uint8_t *pb, uin
     int i, j, steps, index;
     uint8_t b, data;
     uint16_t code, hc, rl;
-    int16_t d;
 
     memset(nodes, 0, sizeof(zjd_huff_node_t) * nodes_len);
 
     zjd_hc_check(nodes, nodes_len, pb, pd);
 
-    d = -1;
     hc = 0;
     index = 1;
     for (i = 0; i < 16; i++) {
@@ -747,8 +744,7 @@ static int zjd_hc_create(zjd_huff_node_t *nodes, int nodes_len, uint8_t *pb, uin
             }
 
             nodes[rl].l = 0 - (uint16_t)data;
-            nodes[rl].r = d;
-            d--;
+            nodes[rl].r = 0 - (uint16_t)data;
         }
         hc <<= 1;
     }

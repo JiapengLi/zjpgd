@@ -10,6 +10,10 @@
 #include "zjpgdusr.h"
 #endif
 
+#ifndef ZJD_MEM_POOL_SZ
+#define ZJD_MEM_POOL_SZ                 (1024 * 3)
+#endif
+
 #ifndef ZJD_DEBUG
 #   define ZJD_DEBUG                    0
 #endif

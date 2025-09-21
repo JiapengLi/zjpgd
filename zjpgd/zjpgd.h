@@ -15,7 +15,7 @@
 
 #define ZJD_VER_MAJOR           0
 #define ZJD_VER_MINOR           1
-#define ZJD_VER_PATCH           2
+#define ZJD_VER_PATCH           3
 #define ZJD_VERSION             (ZJD_VER_MAJOR << 16 | ZJD_VER_MINOR << 8 | ZJD_VER_PATCH)
 
 typedef enum {

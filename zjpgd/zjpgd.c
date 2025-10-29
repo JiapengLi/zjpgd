@@ -26,6 +26,11 @@ static void *zjd_malloc(zjd_t *zjd, int32_t len)
 
 #define CVACC_COEF   1024
 
+static inline uint8_t y2grayscale(int Y)
+{
+    return BYTECLIP(Y);
+}
+
 static inline uint8_t ycbcr2r(int Y, int Cb, int Cr)
 {
     return BYTECLIP(Y + ((int)(1.402f * CVACC_COEF) * Cr) / CVACC_COEF);
@@ -147,7 +152,7 @@ static inline int zjd_get_hc(zjd_huff_t *huff, uint32_t dreg, uint8_t dbit, uint
 // YUV → Grayscale (1 byte)
 static void yuv_to_grayscale(uint8_t **pix, int yy, int cb, int cr)
 {
-    *(*pix)++ = (uint8_t)yy;  // Just use Y channel
+    *(*pix)++ = y2grayscale(yy);
 }
 
 // YUV → RGB888 (R, G, B)
